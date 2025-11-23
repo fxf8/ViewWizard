@@ -1060,6 +1060,7 @@ dependencies = [
     { name = "ipython" },
     { name = "pillow" },
     { name = "python-dotenv" },
+    { name = "requests" },
     { name = "torch" },
     { name = "yarl" },
 ]
@@ -1070,6 +1071,7 @@ requires-dist = [
     { name = "ipython", specifier = ">=9.7.0" },
     { name = "pillow", specifier = ">=12.0.0" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
+    { name = "requests", specifier = ">=2.32.5" },
     { name = "torch", specifier = ">=2.9.1" },
     { name = "yarl", specifier = ">=1.22.0" },
 ]
