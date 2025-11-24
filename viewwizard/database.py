@@ -1,5 +1,8 @@
+import asyncio
 from dataclasses import dataclass, field
 import io
+import pathlib
+import pickle
 
 import aiohttp
 import PIL.Image
@@ -41,3 +44,28 @@ class VideoData:
                 )
 
         return self.thumbnail
+
+
+@dataclass
+class VideoDataset:
+    videos: list[VideoData]
+
+    def save_to_path(self, path: pathlib.Path):
+        with path.open("wb") as file:
+            pickle.dump(self, file)
+
+    def save_to_path_compressed(self, path: pathlib.Path):
+        with path.open("wb") as file:
+            pickle.dump(self, file, protocol=pickle.HIGHEST_PROTOCOL)
+
+    @classmethod
+    def load_from_path(cls, path: pathlib.Path):
+        with path.open("rb") as file:
+            return pickle.load(file)
+
+    async def pull_thumbnails(
+        self, session: aiohttp.ClientSession
+    ) -> asyncio.Future[list[torch.Tensor]]:
+        return asyncio.gather(
+            *(video_data.image_tensor(session) for video_data in self.videos)
+        )
