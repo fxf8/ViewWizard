@@ -69,8 +69,10 @@ def create_client():
     )
 
 
-def sample_random_search_ids(client, query: str, video_duration: str = "medium") -> list[str]:
-    response = (
+def sample_random_search_ids(
+    client, query: str, video_duration: str = "medium"
+) -> list[str]:
+    response: schema.YouTubeSearchListResponseJSON = (
         client.search()
         .list(
             part="id",
@@ -82,7 +84,11 @@ def sample_random_search_ids(client, query: str, video_duration: str = "medium")
         .execute()
     )
 
-    return [video["id"]["videoId"] for video in response["items"]]
+    return [
+        video["id"]["videoId"]
+        for video in response["items"]
+        if video["id"] == "youtube#video"
+    ]
 
 
 class VideoDataset:
