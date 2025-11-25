@@ -81,3 +81,26 @@ class YouTubeVideoListResponseJSON(TypedDict):
     etag: str
     items: List[YouTubeVideoItemJSON]
     pageInfo: YouTubePageInfoJSON
+
+
+# ---- SEARCH ID ---------------------------------------------------------------
+
+
+class YouTubeSearchIdJSON(TypedDict):
+    kind: str
+    videoId: str
+
+
+class YouTubeSearchItemJSON(TypedDict):
+    kind: str
+    etag: str
+    id: YouTubeSearchIdJSON
+
+
+class YouTubeSearchListResponseJSON(TypedDict):
+    kind: str
+    etag: str
+    nextPageToken: str
+    regionCode: str
+    pageInfo: YouTubePageInfoJSON
+    items: List[YouTubeSearchItemJSON]
