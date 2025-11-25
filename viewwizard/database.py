@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 import string
 import asyncio
 from dataclasses import dataclass, field
@@ -7,6 +8,8 @@ import pickle
 import random
 
 import aiohttp
+import dotenv
+import googleapiclient.discovery
 import PIL.Image
 import torch
 import torchvision
@@ -52,6 +55,36 @@ def create_random_query(query_size: int) -> str:
     return "".join(random.choices(string.ascii_letters + string.digits, k=query_size))
 
 
+def chunked(iterable: Sequence, chunk_size: int):
+    for index in range(0, len(iterable), chunk_size):
+        yield iterable[index : index + chunk_size]
+
+
+def create_client():
+    dotenv.load_dotenv()
+    key = dotenv.dotenv_values()["YT_GOOGLE_API_KEY"]
+
+    return googleapiclient.discovery.build(
+        "youtube", "v3", developerKey=key, cache_discovery=False
+    )
+
+
+def sample_random_search_ids(client, query: str, video_duration: str = "medium") -> list[str]:
+    response = (
+        client.search()
+        .list(
+            part="id",
+            type="video",
+            q=query,
+            videoDuration=video_duration,
+            maxResults=50,
+        )
+        .execute()
+    )
+
+    return [video["id"]["videoId"] for video in response["items"]]
+
+
 class VideoDataset:
     videos: dict[str, VideoData] = {}
     video_ids: list[str] = []
@@ -86,15 +119,20 @@ class VideoDataset:
     def add_ids(self, video_ids: list[str]):
         self.video_ids.extend(video_ids)
 
-    def sync_ids(self, youtube_client):
-        response: schema.YouTubeVideoListResponseJSON = (
-            youtube_client.videos()
-            .list(
-                part="snippet,statistics",
-                id=",".join(self.video_ids),
-            )
-            .execute()
-        )
+    def sync_id_video_data(self, youtube_client):
+        unsynced_video_ids = [
+            video_id for video_id in self.video_ids if video_id not in self.videos
+        ]
 
-        for video_data in response["items"]:
-            self.videos[video_data["id"]] = VideoData(video_data)
+        for id_chunk in chunked(unsynced_video_ids, 49):
+            response: schema.YouTubeVideoListResponseJSON = (
+                youtube_client.videos()
+                .list(
+                    part="snippet,statistics",
+                    id=",".join(id_chunk),
+                )
+                .execute()
+            )
+
+            for video_data in response["items"]:
+                self.videos[video_data["id"]] = VideoData(video_data)
