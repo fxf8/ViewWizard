@@ -1,8 +1,10 @@
+import string
 import asyncio
 from dataclasses import dataclass, field
 import io
 import pathlib
 import pickle
+import random
 
 import aiohttp
 import PIL.Image
@@ -46,9 +48,22 @@ class VideoData:
         return self.thumbnail
 
 
-@dataclass
+def create_random_query(query_size: int) -> str:
+    return "".join(random.choices(string.ascii_letters + string.digits, k=query_size))
+
+
 class VideoDataset:
-    videos: list[VideoData]
+    videos: dict[str, VideoData] = {}
+    video_ids: list[str] = []
+
+    def __init__(
+        self,
+        *,
+        videos: dict[str, VideoData] | None = None,
+        video_ids: list[str] | None = None,
+    ):
+        self.videos = videos or {}
+        self.video_ids = video_ids or []
 
     def save_to_path(self, path: pathlib.Path):
         with path.open("wb") as file:
@@ -63,9 +78,23 @@ class VideoDataset:
         with path.open("rb") as file:
             return pickle.load(file)
 
-    async def pull_thumbnails(
-        self, session: aiohttp.ClientSession
-    ) -> asyncio.Future[list[torch.Tensor]]:
-        return asyncio.gather(
-            *(video_data.image_tensor(session) for video_data in self.videos)
+    async def pull_thumbnails(self, session: aiohttp.ClientSession):
+        asyncio.gather(
+            *(video_data.image_tensor(session) for video_data in self.videos.values())
         )
+
+    def add_ids(self, video_ids: list[str]):
+        self.video_ids.extend(video_ids)
+
+    def sync_ids(self, youtube_client):
+        response: schema.YouTubeVideoListResponseJSON = (
+            youtube_client.videos()
+            .list(
+                part="snippet,statistics",
+                id=",".join(self.video_ids),
+            )
+            .execute()
+        )
+
+        for video_data in response["items"]:
+            self.videos[video_data["id"]] = VideoData(video_data)
