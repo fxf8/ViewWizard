@@ -1,5 +1,11 @@
+import viewwizard.session as vsession
+
+
 def main():
-    print("Hello from viewwizard!")
+    menu_context: vsession.MenuContext = vsession.MenuContext()
+
+    while True:
+        vsession.prompt(menu_context)
 
 
 if __name__ == "__main__":

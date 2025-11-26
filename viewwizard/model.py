@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import torch
 import torchvision
 
@@ -47,7 +47,7 @@ class ThumbnailStatisticsModel(torch.nn.Module):
 
 @dataclass
 class ModelTrainingHistory:
-    losses: list[tuple[int, float]] = []
+    losses: list[tuple[int, float]] = field(default_factory=list)
     iteration_count: int = 0
 
     def add_loss(self, loss: float):

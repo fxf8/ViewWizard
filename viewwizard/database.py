@@ -65,7 +65,7 @@ def chunked[T](
         yield iterable[index : index + chunk_size]
 
 
-def create_client():
+def create_client() -> googleapiclient.discovery.Resource:
     dotenv.load_dotenv()
     key = dotenv.dotenv_values()["YT_GOOGLE_API_KEY"]
 
@@ -185,3 +185,25 @@ class VideoDataset:
 
                 except ValueError:
                     pass
+
+    def split_dataset(
+        self, split_ratio: float
+    ) -> tuple["VideoDataset", "VideoDataset"]:
+        split_index: int = int(len(self.video_ids) * split_ratio)
+
+        return (
+            VideoDataset(
+                videos={
+                    video_id: self.videos[video_id]
+                    for video_id in self.video_ids[:split_index]
+                },
+                video_ids=self.video_ids[:split_index],
+            ),
+            VideoDataset(
+                videos={
+                    video_id: self.videos[video_id]
+                    for video_id in self.video_ids[split_index:]
+                },
+                video_ids=self.video_ids[split_index:],
+            ),
+        )

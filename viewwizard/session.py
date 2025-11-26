@@ -1,3 +1,5 @@
+from collections.abc import Callable
+from dataclasses import dataclass
 import pathlib
 import pickle
 import random
@@ -9,12 +11,12 @@ import torch
 
 import viewwizard.database as db
 import viewwizard.model as vmodel
-import viewwizard.schema as schema
+import viewwizard.actions as vactions
 
 
 class ProgramSession:
     session_id: uuid.UUID
-    dataset: list[tuple[str, db.VideoDataset]]
+    datasets: list[tuple[str, db.VideoDataset]]
     models: list[
         tuple[
             vmodel.ThumbnailStatisticsModel,
@@ -27,7 +29,7 @@ class ProgramSession:
     def __init__(self):
         self.session_id = uuid.uuid4()
 
-        self.dataset = []
+        self.datasets = []
         self.models = []
         self.client = None
 
@@ -102,30 +104,27 @@ class ProgramSession:
         return session
 
     def ensure_client(self) -> discovery.Resource:
-        resource = self.client
+        resource: discovery.Resource | None = self.client
 
         if resource is None:
-            resource = cast(
-                discovery.Resource,
-                discovery.build("youtube", "v3", cache_discovery=False),
-            )
+            resource = db.create_client()
 
         self.client = resource
 
         return resource
 
     def create_dataset(self, name: str):
-        self.dataset.append((name, db.VideoDataset()))
+        self.datasets.append((name, db.VideoDataset()))
 
     def search_new_thumbnails(
         self, dataset_number: int, search_count: int
     ) -> int | None:
-        if dataset_number >= len(self.dataset):
+        if dataset_number >= len(self.datasets):
             return None
 
         client: discovery.Resource = self.ensure_client()
 
-        _, dataset = self.dataset[dataset_number]
+        _, dataset = self.datasets[dataset_number]
 
         new_ids: list[str] = sum(
             [
@@ -141,3 +140,114 @@ class ProgramSession:
         dataset.sync_id_video_data(client)
 
         return len(new_ids)
+
+    def split_dataset(
+        self,
+        dataset_number: int,
+        split_ratio: float,
+        first_dataset_name: str,
+        second_dataset_name: str,
+    ) -> tuple[int, int] | None:
+        if dataset_number >= len(self.datasets):
+            return None
+
+        _, dataset = self.datasets[dataset_number]
+
+        first, second = dataset.split_dataset(split_ratio)
+
+        self.datasets.append((first_dataset_name, first))
+        self.datasets.append((second_dataset_name, second))
+
+        return len(first.video_ids), len(second.video_ids)
+
+    def delete_dataset(self, dataset_number: int):
+        if dataset_number < len(self.datasets):
+            del self.datasets[dataset_number]
+
+
+@dataclass
+class MenuOption:
+    diolague: str
+
+    suboptions: list["MenuOption"] | None = None
+    callback: Callable[["MenuContext"], None] | None = None
+
+
+DIOLAGUE_TREE: list[MenuOption] = [
+    MenuOption(
+        "Manage Session...",
+        [
+            MenuOption("Save Session", callback=vactions.save_session),
+            MenuOption("Load Session", callback=vactions.load_session),
+        ],
+    ),
+    MenuOption(
+        "Manage Datasets...",
+        [
+            MenuOption("List Datasets", callback=vactions.list_datasets),
+            MenuOption("View Dataset Information", callback=vactions.view_dataset),
+            MenuOption("Create Dataset", callback=vactions.create_dataset),
+            MenuOption("Delete Dataset", callback=vactions.delete_dataset),
+            MenuOption(
+                "Search New Thumbnails", callback=vactions.search_new_thumbnails
+            ),
+            MenuOption("Shuffle Dataset", callback=vactions.shuffle_dataset),
+            MenuOption("Merge Datasets", callback=vactions.merge_datasets),
+            MenuOption("Split Dataset", callback=vactions.split_dataset),
+        ],
+    ),
+    MenuOption(
+        "Manage Models...",
+        [
+            MenuOption("List Models"),
+            MenuOption("Train Model"),
+            MenuOption("View Model Information"),
+        ],
+    ),
+    MenuOption("Exit"),
+]
+
+
+class MenuContext:
+    session: ProgramSession
+    options: list[MenuOption] = DIOLAGUE_TREE
+
+    def __init__(
+        self,
+        session: ProgramSession,
+        options: list[MenuOption] | None = None,
+    ):
+        self.session = session
+        self.options = options or DIOLAGUE_TREE
+
+
+def prompt(context: MenuContext):
+    print("\nSelect an option:")
+
+    selection: str | None = None
+
+    while (
+        selection is None
+        or not selection.isdigit()
+        or not (0 <= int(selection) < len(context.options))
+    ):
+        for index, option in enumerate(context.options):
+            print(f"{index}: {option.diolague}")
+
+        selection = input("> ")
+
+        if not selection.isdigit():
+            print(f"Please enter a number. Your input `{selection}` is not a number.")
+
+        if not (0 <= int(selection) < len(context.options)):
+            print(
+                f"Please enter a number between 0 and {len(context.options) - 1} (inclusive). Your input `{selection}` is out of range."
+            )
+
+    chosen_option: MenuOption = context.options[int(cast(str, selection))]
+
+    if chosen_option.callback is not None:
+        chosen_option.callback(context)
+
+    if chosen_option.suboptions is not None:
+        prompt(MenuContext(context.session, chosen_option.suboptions))
