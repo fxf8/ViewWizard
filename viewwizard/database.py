@@ -6,6 +6,7 @@ import io
 import pathlib
 import pickle
 import random
+import uuid
 
 import aiohttp
 import dotenv
@@ -22,12 +23,15 @@ import viewwizard.model as vmodel
 @dataclass
 class VideoData:
     video_data: schema.YouTubeVideoItemJSON
+    video_data_id: uuid.UUID = field(init=False)
     thumbnail: yarl.URL | torch.Tensor = field(init=False)  # Has shape (3 x H x W)
 
     def __post_init__(self):
         self.thumbnail = yarl.URL(
             self.video_data["snippet"]["thumbnails"]["default"]["url"]
         )
+
+        self.video_data_id = uuid.uuid4()
 
     async def image_tensor(
         self,
@@ -93,8 +97,9 @@ def sample_random_search_ids(
 
 
 class VideoDataset:
-    videos: dict[str, VideoData] = {}
-    video_ids: list[str] = []
+    dataset_id: uuid.UUID
+    videos: dict[str, VideoData]
+    video_ids: list[str]
 
     def __init__(
         self,
@@ -104,6 +109,8 @@ class VideoDataset:
     ):
         self.videos = videos or {}
         self.video_ids = video_ids or []
+
+        self.dataset_id = uuid.uuid4()
 
     def save_to_path(self, path: pathlib.Path):
         with path.open("wb") as file:
