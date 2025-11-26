@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 import torch
-from torch import nn
 import torchvision
 
 
@@ -11,7 +10,7 @@ class ThumbnailStatisticsTrainingBatch:
     view_count: torch.Tensor  # shape (batch_size)
 
 
-class ThumbnailStatisticsModel(nn.Module):
+class ThumbnailStatisticsModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
@@ -31,7 +30,9 @@ class ThumbnailStatisticsModel(nn.Module):
         for parameter in self.encoder.parameters():
             parameter.requires_grad = False
 
-        self.regression = nn.Linear(in_features=1000, out_features=1)  # (view count)
+        self.regression = torch.nn.Linear(
+            in_features=1000, out_features=1
+        )  # (view count)
 
     def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
@@ -44,19 +45,42 @@ class ThumbnailStatisticsModel(nn.Module):
         return self.regression(encoded_image)
 
 
+@dataclass
+class ModelTrainingHistory:
+    losses: list[tuple[int, float]] = []
+    iteration_count: int = 0
+
+    def add_loss(self, loss: float):
+        self.losses.append((self.iteration_count, loss))
+        self.iteration_count += 1
+
+    def extend(self, losses: list[float]):
+        for loss in losses:
+            self.add_loss(loss)
+
+    def merge(self, other: "ModelTrainingHistory"):
+        for loss in other.losses:
+            self.add_loss(loss[1])
+
+
 def train_model_batch(
     model: ThumbnailStatisticsModel,
     sample: ThumbnailStatisticsTrainingBatch,
     optimizer: torch.optim.Optimizer,
-):
+) -> ModelTrainingHistory:
+    training_history = ModelTrainingHistory()
+
     optimizer.zero_grad()
 
     predicted_view_count = model(sample.image)
 
     view_count_loss = torch.nn.functional.l1_loss(
-        predicted_view_count, sample.view_count
+        predicted_view_count, torch.log10(sample.view_count)
     )
 
-    view_count_loss.backward()
+    training_history.add_loss(view_count_loss.item())
 
+    view_count_loss.backward()
     optimizer.step()
+
+    return training_history
