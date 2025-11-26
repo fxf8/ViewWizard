@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import AsyncGenerator, Collection, Generator, Sequence
 import string
 import asyncio
 from dataclasses import dataclass, field
@@ -16,12 +16,13 @@ import torchvision
 import yarl
 
 import viewwizard.schema as schema
+import viewwizard.model as vmodel
 
 
 @dataclass
 class VideoData:
     video_data: schema.YouTubeVideoItemJSON
-    thumbnail: yarl.URL | torch.Tensor = field(init=False)
+    thumbnail: yarl.URL | torch.Tensor = field(init=False)  # Has shape (3 x H x W)
 
     def __post_init__(self):
         self.thumbnail = yarl.URL(
@@ -44,9 +45,7 @@ class VideoData:
                     io.BytesIO(await response.content.read())
                 ).convert("RGB")
 
-                self.thumbnail = torch.from_numpy(
-                    torchvision.transforms.ToTensor()(pil_image)
-                )
+                self.thumbnail = torchvision.transforms.ToTensor()(pil_image)
 
         return self.thumbnail
 
@@ -55,7 +54,9 @@ def create_random_query(query_size: int) -> str:
     return "".join(random.choices(string.ascii_letters + string.digits, k=query_size))
 
 
-def chunked(iterable: Sequence, chunk_size: int):
+def chunked[T](
+    iterable: Sequence[T], chunk_size: int
+) -> Generator[Sequence[T], None, None]:
     for index in range(0, len(iterable), chunk_size):
         yield iterable[index : index + chunk_size]
 
@@ -87,7 +88,7 @@ def sample_random_search_ids(
     return [
         video["id"]["videoId"]
         for video in response["items"]
-        if video["id"] == "youtube#video"
+        if video["id"]["kind"] == "youtube#video"
     ]
 
 
@@ -118,11 +119,11 @@ class VideoDataset:
             return pickle.load(file)
 
     async def pull_thumbnails(self, session: aiohttp.ClientSession):
-        asyncio.gather(
+        await asyncio.gather(
             *(video_data.image_tensor(session) for video_data in self.videos.values())
         )
 
-    def add_ids(self, video_ids: list[str]):
+    def add_ids(self, video_ids: Collection[str]):
         self.video_ids.extend(video_ids)
 
     def sync_id_video_data(self, youtube_client):
@@ -142,3 +143,38 @@ class VideoDataset:
 
             for video_data in response["items"]:
                 self.videos[video_data["id"]] = VideoData(video_data)
+
+    def shuffle_dataset(self):
+        random.shuffle(self.video_ids)
+
+    async def get_training_batches(
+        self,
+        batch_size: int,
+    ) -> AsyncGenerator[vmodel.ThumbnailStatisticsTrainingBatch, None]:
+        async with aiohttp.ClientSession() as aiohttp_session:
+            for samples in chunked([*self.videos.items()], batch_size):
+                try:
+                    yield vmodel.ThumbnailStatisticsTrainingBatch(
+                        video_ids=[video_id for video_id, _ in samples],
+                        image=torch.stack(
+                            [
+                                await video_data.image_tensor(aiohttp_session)
+                                for _, video_data in samples
+                                if isinstance(video_data.thumbnail, torch.Tensor)
+                            ]
+                        ),
+                        view_count=torch.stack(
+                            [
+                                torch.tensor(
+                                    int(
+                                        video_data.video_data["statistics"]["viewCount"]
+                                    )
+                                )
+                                for _, video_data in samples
+                                if isinstance(video_data.thumbnail, torch.Tensor)
+                            ]
+                        ),
+                    )
+
+                except ValueError:
+                    pass
