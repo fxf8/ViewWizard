@@ -64,6 +64,7 @@ class ProgramSession:
                 (
                     self.__dict__,
                     (
+                        model_names,
                         model_states,
                         optimizer_states,
                         optimizer_classes,

@@ -27,7 +27,14 @@ def save_session(menu_context: "vsession.MenuContext"):
     save_path: pathlib.Path | None = None
 
     while save_path is None:
-        save_path = pathlib.Path(input("Please enter a path to save the session to: "))
+        user_input = input(
+            "Please enter a path to save the session to (or type 'e' to exit): "
+        )
+
+        if user_input.lower() == "e":
+            return
+
+        save_path = pathlib.Path(user_input)
 
         if save_path.exists():
             print(
@@ -118,6 +125,11 @@ def create_dataset(menu_context: "vsession.MenuContext"):
 
 
 def delete_dataset(menu_context: "vsession.MenuContext"):
+    if len(menu_context.session.datasets) == 0:
+        print("There are no datasets to delete.")
+
+        return
+
     list_datasets(menu_context)
 
     dataset_number: int | None = None
@@ -133,6 +145,11 @@ def delete_dataset(menu_context: "vsession.MenuContext"):
 
 
 def search_new_thumbnails(menu_context: "vsession.MenuContext"):
+    if len(menu_context.session.datasets) == 0:
+        print("There are no datasets to search.")
+
+        return
+
     list_datasets(menu_context)
 
     dataset_number: int | None = None
@@ -158,6 +175,11 @@ def search_new_thumbnails(menu_context: "vsession.MenuContext"):
 
 
 def view_dataset(menu_context: "vsession.MenuContext"):
+    if len(menu_context.session.datasets) == 0:
+        print("There are no datasets to view.")
+
+        return
+
     list_datasets(menu_context)
 
     dataset_number: int | None = None
@@ -178,6 +200,11 @@ def view_dataset(menu_context: "vsession.MenuContext"):
 
 
 def shuffle_dataset(menu_context: "vsession.MenuContext"):
+    if len(menu_context.session.datasets) == 0:
+        print("There are no datasets to shuffle.")
+
+        return
+
     list_datasets(menu_context)
 
     dataset_number: int | None = None
@@ -195,6 +222,11 @@ def shuffle_dataset(menu_context: "vsession.MenuContext"):
 
 
 def merge_datasets(menu_context: "vsession.MenuContext"):
+    if len(menu_context.session.datasets) < 2:
+        print("There are not enough datasets to merge (there must be at least two).")
+
+        return
+
     list_datasets(menu_context)
 
     dataset_number_1: int | None = None
