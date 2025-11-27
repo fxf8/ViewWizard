@@ -1,9 +1,12 @@
+import asyncio
+from collections.abc import AsyncGenerator
 import pathlib
 import pickle
 import tabulate
 
-import viewwizard.session as vsession
 import viewwizard.database as vdb
+import viewwizard.model as vmodel
+import viewwizard.session as vsession
 
 
 def save_session(menu_context: vsession.MenuContext):
@@ -68,15 +71,29 @@ def load_session(menu_context: vsession.MenuContext):
 
 def list_datasets(menu_context: vsession.MenuContext):
     table = [
-        [index, dataset_name, dataset_id]
-        for index, (dataset_name, dataset_id) in enumerate(
-            menu_context.session.datasets
-        )
+        [
+            index,
+            dataset_name,
+            dataset.dataset_id,
+            len(dataset.video_ids),
+            len(dataset.videos),
+        ]
+        for index, (
+            dataset_name,
+            dataset,
+        ) in enumerate(menu_context.session.datasets)
     ]
 
     print(
         tabulate.tabulate(
-            table, headers=["Dataset Index", "Dataset Name", "Dataset ID"]
+            table,
+            headers=[
+                "Dataset Index",
+                "Dataset Name",
+                "Dataset ID",
+                "Video ID Count",
+                "Video Data Count",
+            ],
         )
     )
 
@@ -92,8 +109,10 @@ def delete_dataset(menu_context: vsession.MenuContext):
 
     dataset_number: int | None = None
 
-    while dataset_number is None or dataset_number >= len(
-        menu_context.session.datasets
+    while (
+        dataset_number is None
+        or dataset_number >= len(menu_context.session.datasets)
+        or dataset_number < 0
     ):
         dataset_number = int(input("Please enter the index of the dataset to delete: "))
 
@@ -103,8 +122,10 @@ def delete_dataset(menu_context: vsession.MenuContext):
 def search_new_thumbnails(menu_context: vsession.MenuContext):
     dataset_number: int | None = None
 
-    while dataset_number is None or dataset_number >= len(
-        menu_context.session.datasets
+    while (
+        dataset_number is None
+        or dataset_number >= len(menu_context.session.datasets)
+        or dataset_number < 0
     ):
         dataset_number = int(input("Please enter the index of the dataset to search: "))
 
@@ -126,8 +147,10 @@ def view_dataset(menu_context: vsession.MenuContext):
 
     dataset_number: int | None = None
 
-    while dataset_number is None or dataset_number >= len(
-        menu_context.session.datasets
+    while (
+        dataset_number is None
+        or dataset_number >= len(menu_context.session.datasets)
+        or dataset_number < 0
     ):
         dataset_number = int(input("Please enter the index of the dataset to view: "))
 
@@ -142,8 +165,10 @@ def view_dataset(menu_context: vsession.MenuContext):
 def shuffle_dataset(menu_context: vsession.MenuContext):
     dataset_number: int | None = None
 
-    while dataset_number is None or dataset_number >= len(
-        menu_context.session.datasets
+    while (
+        dataset_number is None
+        or dataset_number >= len(menu_context.session.datasets)
+        or dataset_number < 0
     ):
         dataset_number = int(
             input("Please enter the index of the dataset to shuffle: ")
@@ -157,8 +182,10 @@ def merge_datasets(menu_context: vsession.MenuContext):
 
     dataset_number_1: int | None = None
 
-    while dataset_number_1 is None or dataset_number_1 >= len(
-        menu_context.session.datasets
+    while (
+        dataset_number_1 is None
+        or dataset_number_1 >= len(menu_context.session.datasets)
+        or dataset_number_1 < 0
     ):
         dataset_number_1 = int(
             input("Please enter the index of the first dataset to merge: ")
@@ -166,8 +193,10 @@ def merge_datasets(menu_context: vsession.MenuContext):
 
     dataset_number_2: int | None = None
 
-    while dataset_number_2 is None or dataset_number_2 >= len(
-        menu_context.session.datasets
+    while (
+        dataset_number_2 is None
+        or dataset_number_2 >= len(menu_context.session.datasets)
+        or dataset_number_2 < 0
     ):
         dataset_number_2 = int(
             input("Please enter the index of the second dataset to merge: ")
@@ -197,8 +226,10 @@ def split_dataset(menu_context: vsession.MenuContext):
 
     dataset_number: int | None = None
 
-    while dataset_number is None or dataset_number >= len(
-        menu_context.session.datasets
+    while (
+        dataset_number is None
+        or dataset_number >= len(menu_context.session.datasets)
+        or dataset_number < 0
     ):
         dataset_number = int(input("Please enter the index of the dataset to split: "))
 
@@ -227,4 +258,123 @@ def split_dataset(menu_context: vsession.MenuContext):
 
     menu_context.session.split_dataset(
         dataset_number, split_ratio, first_dataset_name, second_dataset_name
+    )
+
+
+def list_models(menu_context: vsession.MenuContext):
+    print(
+        tabulate.tabulate(
+            [
+                [
+                    index,
+                    model_name,
+                    type(optimizer).__name__,
+                    training_history.losses[-1][0],
+                    training_history.losses[-1][1],
+                ]
+                for index, (
+                    model_name,
+                    _,
+                    optimizer,
+                    training_history,
+                ) in enumerate(menu_context.session.models)
+            ],
+            headers=[
+                "Index",
+                "Model Name",
+                "Optimizer Type",
+                "Training Iterations",
+                "Most Recent Loss",
+            ],
+        )
+    )
+
+
+async def train_model(menu_context: vsession.MenuContext):
+    list_models(menu_context)
+
+    model_index: int | None = None
+
+    while (
+        model_index is None
+        or model_index >= len(menu_context.session.models)
+        or model_index < 0
+    ):
+        try:
+            model_index = int(input("Please enter the index of the model to train: "))
+
+        except ValueError as error:
+            print(error)
+
+    list_datasets(menu_context)
+
+    dataset_number: int | None = None
+
+    while (
+        dataset_number is None
+        or dataset_number >= len(menu_context.session.datasets)
+        or dataset_number < 0
+    ):
+        dataset_number = int(input("Please enter the index of the dataset to use: "))
+
+    batch_size: int | None = None
+
+    while batch_size is None or batch_size <= 0:
+        try:
+            batch_size = int(input("Please enter the batch size: "))
+
+        except ValueError as error:
+            print(error)
+
+        if batch_size is not None and batch_size <= 0:
+            print("Please enter a positive value for the batch size.")
+
+    iterations: int | None = None
+
+    while iterations is None or iterations <= 0:
+        try:
+            iterations = int(input("Please enter the number of training iterations: "))
+
+        except ValueError as error:
+            print(error)
+
+    _, model, optimizer, training_history = menu_context.session.models[model_index]
+
+    batches: AsyncGenerator[vmodel.ThumbnailStatisticsTrainingBatch, None] = (
+        menu_context.session.datasets[dataset_number][1].get_training_batches(
+            batch_size
+        )
+    )
+
+    total_batches: int = len(menu_context.session.datasets[dataset_number][1].video_ids)
+    current_batches_used: int = 0
+    thresholds: list[int] = [int(total_batches * i / 10) for i in range(1, 11)]
+
+    async for batch in batches:
+        current_batches_used += 1
+
+        training_record: vmodel.ModelTrainingHistory = vmodel.train_model_batch(
+            model, batch, optimizer
+        )
+
+        training_history.merge(training_record)
+
+        thresholds_passsed: list[int] = [
+            threshold for threshold in thresholds if threshold <= current_batches_used
+        ]
+
+        if len(thresholds_passsed) > 0:
+            highest_thresholds_passed = max(thresholds_passsed)
+            thresholds = [
+                threshold
+                for threshold in thresholds
+                if threshold > highest_thresholds_passed
+            ]
+
+            print(
+                f"Progress: {current_batches_used}/{total_batches} ({100 * current_batches_used / total_batches:.2f}%)"
+            )
+
+    print(
+        f"Training complete. Final loss: {training_history.losses[-1][0]}, Final accuracy: {training_history.losses[-1][1]}"
     )

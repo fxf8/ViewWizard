@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
 import pathlib
@@ -19,6 +20,7 @@ class ProgramSession:
     datasets: list[tuple[str, vdb.VideoDataset]]
     models: list[
         tuple[
+            str,
             vmodel.ThumbnailStatisticsModel,
             torch.optim.Optimizer,
             vmodel.ModelTrainingHistory,
@@ -34,12 +36,15 @@ class ProgramSession:
         self.client = None
 
     def save_to_path(self, path: pathlib.Path):
+        model_names: list[str] = []
         model_states: list[dict] = []
         optimizer_states: list[dict] = []
         optimizer_classes: list[type] = []
         training_histories: list[vmodel.ModelTrainingHistory] = []
 
-        for model, optimizer, history in self.models:
+        for model_name, model, optimizer, history in self.models:
+            model_names.append(model_name)
+
             model.cpu()
             model_states.append(model.state_dict())
 
@@ -77,6 +82,7 @@ class ProgramSession:
             session_dict, saved_states = pickle.load(f)
 
         (
+            model_names,
             model_states,
             optimizer_states,
             optimizer_classes,
@@ -88,8 +94,12 @@ class ProgramSession:
 
         # Reconstruct everything
         session.models = []
-        for model_state, opt_state, opt_class, history in zip(
-            model_states, optimizer_states, optimizer_classes, training_histories
+        for model_name, model_state, opt_state, opt_class, history in zip(
+            model_names,
+            model_states,
+            optimizer_states,
+            optimizer_classes,
+            training_histories,
         ):
             model = vmodel.ThumbnailStatisticsModel()
             model.load_state_dict(model_state)
@@ -97,7 +107,7 @@ class ProgramSession:
             optimizer = opt_class(model.parameters())
             optimizer.load_state_dict(opt_state)
 
-            session.models.append((model, optimizer, history))
+            session.models.append((model_name, model, optimizer, history))
 
         session.client = None
 
@@ -204,9 +214,13 @@ DIOLAGUE_TREE: list[MenuOption] = [
     MenuOption(
         "Manage Models...",
         [
-            MenuOption("List Models"),
-            MenuOption("Train Model"),
-            MenuOption("View Model Information"),
+            MenuOption("List Models", callback=vactions.list_models),
+            MenuOption(
+                "Train Model",
+                callback=lambda menu_context: asyncio.run(
+                    vactions.train_model(menu_context)
+                ),
+            ),
         ],
     ),
     MenuOption("Exit"),
