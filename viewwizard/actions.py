@@ -241,7 +241,7 @@ def view_dataset(menu_context: "vsession.MenuContext"):
     print(f"Dataset Name: {dataset_name}")
     print(f"Dataset ID: {dataset.dataset_id}")
     print(f"Dataset Video Count: {len(dataset.video_ids)}")
-    print(f"Dataset Video IDs: {dataset.video_ids}")
+    print(f"Dataset Video ID Count: {len(dataset.video_ids)}")
 
 
 def shuffle_dataset(menu_context: "vsession.MenuContext"):
@@ -539,4 +539,3 @@ async def train_model(menu_context: "vsession.MenuContext"):
     print(
         f"Training complete. Final loss: {training_history.losses[-1][0]}, Final accuracy: {training_history.losses[-1][1]}"
     )
-

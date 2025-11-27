@@ -225,7 +225,6 @@ DIOLAGUE_TREE: list[MenuOption] = [
             ),
         ],
     ),
-    MenuOption("Exit"),
 ]
 
 
@@ -243,7 +242,7 @@ class MenuContext:
 
 
 def prompt(context: MenuContext) -> bool:
-    print("\nSelect an option:")
+    print("\nSelect an option (or type 'e' to exit to the previous menu):")
 
     selection: str | None = None
 
@@ -257,23 +256,27 @@ def prompt(context: MenuContext) -> bool:
 
         selection = input("> ")
 
+        if selection.lower() == "e":
+            return False
+
         if not selection.isdigit():
             print(f"Please enter a number. Your input `{selection}` is not a number.")
 
-        if not (0 <= int(selection) < len(context.options)):
+        elif not (0 <= int(selection) < len(context.options)):
             print(
                 f"Please enter a number between 0 and {len(context.options) - 1} (inclusive). Your input `{selection}` is out of range."
             )
 
-    chosen_option: MenuOption = context.options[int(cast(str, selection))]
+    try:
+        chosen_option: MenuOption = context.options[int(cast(str, selection))]
 
-    if chosen_option.diolague == "Exit":
-        return False
+        if chosen_option.callback is not None:
+            chosen_option.callback(context)
 
-    if chosen_option.callback is not None:
-        chosen_option.callback(context)
+        if chosen_option.suboptions is not None:
+            prompt(MenuContext(context.session, chosen_option.suboptions))
 
-    if chosen_option.suboptions is not None:
-        prompt(MenuContext(context.session, chosen_option.suboptions))
+        return True
 
-    return True
+    except ValueError:
+        return True
