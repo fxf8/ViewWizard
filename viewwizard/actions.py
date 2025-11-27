@@ -20,6 +20,8 @@ def create_session(menu_context: "vsession.MenuContext"):
     )
 
     if should_create_new_session:
+        import viewwizard.session as vsession
+
         menu_context.session = vsession.ProgramSession()
 
 
@@ -57,21 +59,26 @@ def load_session(menu_context: "vsession.MenuContext"):
     import viewwizard.session as vsession
 
     load_path: pathlib.Path | None = None
-    is_complete: bool = False
     is_session_loaded: bool = False
 
-    while load_path is None or not load_path.exists() or not is_complete:
-        load_path = pathlib.Path(
-            input("Please enter a path to load the session from: ")
+    while True:
+        user_input = input(
+            "Please enter a path to load the session from (or type 'e' to exit): "
         )
+
+        if user_input.lower() == "e":
+            return
+
+        load_path = pathlib.Path(user_input)
 
         if not load_path.exists():
             print(f"The path provided `{load_path}` does not exist.")
+            continue
 
         try:
             menu_context.session = vsession.ProgramSession.load_from_path(load_path)
-            is_complete = True
             is_session_loaded = True
+            break
 
         except pickle.UnpicklingError:
             print(
@@ -81,9 +88,9 @@ def load_session(menu_context: "vsession.MenuContext"):
             response: str = input("> ")
 
             if response.lower() != "y":
-                is_complete = True
+                break
 
-    if is_session_loaded:
+    if is_session_loaded and load_path:
         print(
             f"Session loaded from `{load_path.absolute() if load_path.is_absolute() else load_path}`."
         )
@@ -119,27 +126,42 @@ def list_datasets(menu_context: "vsession.MenuContext"):
 
 
 def create_dataset(menu_context: "vsession.MenuContext"):
-    dataset_name: str = input("Please enter the name of the dataset: ")
-
-    menu_context.session.create_dataset(dataset_name)
+    while True:
+        dataset_name = input(
+            "Please enter the name of the dataset (or type 'e' to exit): "
+        )
+        if dataset_name.lower() == "e":
+            return
+        if dataset_name:
+            menu_context.session.create_dataset(dataset_name)
+            break
+        else:
+            print("Dataset name cannot be empty.")
 
 
 def delete_dataset(menu_context: "vsession.MenuContext"):
     if len(menu_context.session.datasets) == 0:
         print("There are no datasets to delete.")
-
         return
 
     list_datasets(menu_context)
 
     dataset_number: int | None = None
+    while True:
+        user_input = input(
+            "Please enter the index of the dataset to delete (or type 'e' to exit): "
+        )
+        if user_input.lower() == "e":
+            return
 
-    while (
-        dataset_number is None
-        or dataset_number >= len(menu_context.session.datasets)
-        or dataset_number < 0
-    ):
-        dataset_number = int(input("Please enter the index of the dataset to delete: "))
+        try:
+            dataset_number = int(user_input)
+            if not (0 <= dataset_number < len(menu_context.session.datasets)):
+                print("Invalid index.")
+                continue
+            break
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
     menu_context.session.delete_dataset(dataset_number)
 
@@ -147,24 +169,41 @@ def delete_dataset(menu_context: "vsession.MenuContext"):
 def search_new_thumbnails(menu_context: "vsession.MenuContext"):
     if len(menu_context.session.datasets) == 0:
         print("There are no datasets to search.")
-
         return
 
     list_datasets(menu_context)
 
     dataset_number: int | None = None
-
-    while (
-        dataset_number is None
-        or dataset_number >= len(menu_context.session.datasets)
-        or dataset_number < 0
-    ):
-        dataset_number = int(input("Please enter the index of the dataset to search: "))
+    while True:
+        user_input = input(
+            "Please enter the index of the dataset to search (or type 'e' to exit): "
+        )
+        if user_input.lower() == "e":
+            return
+        try:
+            dataset_number = int(user_input)
+            if not (0 <= dataset_number < len(menu_context.session.datasets)):
+                print("Invalid index.")
+                continue
+            break
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
     search_count: int | None = None
-
-    while search_count is None or search_count <= 0:
-        search_count = int(input("Please enter the number of times to search: "))
+    while True:
+        user_input = input(
+            "Please enter the number of times to search (or type 'e' to exit): "
+        )
+        if user_input.lower() == "e":
+            return
+        try:
+            search_count = int(user_input)
+            if search_count <= 0:
+                print("Please enter a positive number.")
+                continue
+            break
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
     def progress_callback(current: int, total: int):
         print(f"Progress: {current}/{total}")
@@ -177,19 +216,25 @@ def search_new_thumbnails(menu_context: "vsession.MenuContext"):
 def view_dataset(menu_context: "vsession.MenuContext"):
     if len(menu_context.session.datasets) == 0:
         print("There are no datasets to view.")
-
         return
 
     list_datasets(menu_context)
 
     dataset_number: int | None = None
-
-    while (
-        dataset_number is None
-        or dataset_number >= len(menu_context.session.datasets)
-        or dataset_number < 0
-    ):
-        dataset_number = int(input("Please enter the index of the dataset to view: "))
+    while True:
+        user_input = input(
+            "Please enter the index of the dataset to view (or type 'e' to exit): "
+        )
+        if user_input.lower() == "e":
+            return
+        try:
+            dataset_number = int(user_input)
+            if not (0 <= dataset_number < len(menu_context.session.datasets)):
+                print("Invalid index.")
+                continue
+            break
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
     dataset_name, dataset = menu_context.session.datasets[dataset_number]
 
@@ -202,21 +247,25 @@ def view_dataset(menu_context: "vsession.MenuContext"):
 def shuffle_dataset(menu_context: "vsession.MenuContext"):
     if len(menu_context.session.datasets) == 0:
         print("There are no datasets to shuffle.")
-
         return
 
     list_datasets(menu_context)
 
     dataset_number: int | None = None
-
-    while (
-        dataset_number is None
-        or dataset_number >= len(menu_context.session.datasets)
-        or dataset_number < 0
-    ):
-        dataset_number = int(
-            input("Please enter the index of the dataset to shuffle: ")
+    while True:
+        user_input = input(
+            "Please enter the index of the dataset to shuffle (or type 'e' to exit): "
         )
+        if user_input.lower() == "e":
+            return
+        try:
+            dataset_number = int(user_input)
+            if not (0 <= dataset_number < len(menu_context.session.datasets)):
+                print("Invalid index.")
+                continue
+            break
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
     menu_context.session.datasets[dataset_number][1].shuffle_dataset()
 
@@ -224,41 +273,58 @@ def shuffle_dataset(menu_context: "vsession.MenuContext"):
 def merge_datasets(menu_context: "vsession.MenuContext"):
     if len(menu_context.session.datasets) < 2:
         print("There are not enough datasets to merge (there must be at least two).")
-
         return
 
     list_datasets(menu_context)
 
     dataset_number_1: int | None = None
-
-    while (
-        dataset_number_1 is None
-        or dataset_number_1 >= len(menu_context.session.datasets)
-        or dataset_number_1 < 0
-    ):
-        dataset_number_1 = int(
-            input("Please enter the index of the first dataset to merge: ")
+    while True:
+        user_input = input(
+            "Please enter the index of the first dataset to merge (or type 'e' to exit): "
         )
+        if user_input.lower() == "e":
+            return
+        try:
+            dataset_number_1 = int(user_input)
+            if not (0 <= dataset_number_1 < len(menu_context.session.datasets)):
+                print("Invalid index.")
+                continue
+            break
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
     dataset_number_2: int | None = None
-
-    while (
-        dataset_number_2 is None
-        or dataset_number_2 >= len(menu_context.session.datasets)
-        or dataset_number_2 < 0
-    ):
-        dataset_number_2 = int(
-            input("Please enter the index of the second dataset to merge: ")
+    while True:
+        user_input = input(
+            "Please enter the index of the second dataset to merge (or type 'e' to exit): "
         )
+        if user_input.lower() == "e":
+            return
+        try:
+            dataset_number_2 = int(user_input)
+            if not (0 <= dataset_number_2 < len(menu_context.session.datasets)):
+                print("Invalid index.")
+                continue
+            if dataset_number_1 == dataset_number_2:
+                print("Cannot merge a dataset with itself.")
+                continue
+            break
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
     default_merged_dataset_name: str = f"Merged {menu_context.session.datasets[dataset_number_1][0]}+{menu_context.session.datasets[dataset_number_2][0]}"
 
-    merged_dataset_name: str = (
-        input(
-            f"Please enter the name of the merged dataset (default {default_merged_dataset_name}): "
+    while True:
+        user_input = input(
+            f"Please enter the name of the merged dataset (default {default_merged_dataset_name}, or type 'e' to exit): "
         )
-        or default_merged_dataset_name
-    )
+        if user_input.lower() == "e":
+            return
+        merged_dataset_name = user_input or default_merged_dataset_name
+        if merged_dataset_name:
+            break
+        else:
+            print("Dataset name cannot be empty.")
 
     merged_dataset: vdb.VideoDataset = vdb.VideoDataset.merge_datasets(
         [
@@ -274,36 +340,63 @@ def split_dataset(menu_context: "vsession.MenuContext"):
     list_datasets(menu_context)
 
     dataset_number: int | None = None
-
-    while (
-        dataset_number is None
-        or dataset_number >= len(menu_context.session.datasets)
-        or dataset_number < 0
-    ):
-        dataset_number = int(input("Please enter the index of the dataset to split: "))
+    while True:
+        user_input = input(
+            "Please enter the index of the dataset to split (or type 'e' to exit): "
+        )
+        if user_input.lower() == "e":
+            return
+        try:
+            dataset_number = int(user_input)
+            if not (0 <= dataset_number < len(menu_context.session.datasets)):
+                print("Invalid index.")
+                continue
+            break
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
     split_ratio: float | None = None
-
-    while split_ratio is None or split_ratio <= 0 or split_ratio >= 1:
-        split_ratio = float(input("Please enter the split ratio: "))
+    while True:
+        user_input = input("Please enter the split ratio (or type 'e' to exit): ")
+        if user_input.lower() == "e":
+            return
+        try:
+            split_ratio = float(user_input)
+            if not (0 < split_ratio < 1):
+                print("Split ratio must be between 0 and 1.")
+                continue
+            break
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
     default_first_dataset_name: str = f"Split Beginning {split_ratio} {menu_context.session.datasets[dataset_number][0]}"
     default_second_dataset_name: str = (
         f"Split End {split_ratio} {menu_context.session.datasets[dataset_number][0]}"
     )
 
-    first_dataset_name: str = (
-        input(
-            f"Please enter the name of the first dataset (default {default_first_dataset_name}): "
+    while True:
+        user_input = input(
+            f"Please enter the name of the first dataset (default {default_first_dataset_name}, or type 'e' to exit): "
         )
-        or default_first_dataset_name
-    )
-    second_dataset_name: str = (
-        input(
-            f"Please enter the name of the second dataset (default {default_second_dataset_name}): "
+        if user_input.lower() == "e":
+            return
+        first_dataset_name = user_input or default_first_dataset_name
+        if first_dataset_name:
+            break
+        else:
+            print("Dataset name cannot be empty.")
+
+    while True:
+        user_input = input(
+            f"Please enter the name of the second dataset (default {default_second_dataset_name}, or type 'e' to exit): "
         )
-        or default_second_dataset_name
-    )
+        if user_input.lower() == "e":
+            return
+        second_dataset_name = user_input or default_second_dataset_name
+        if second_dataset_name:
+            break
+        else:
+            print("Dataset name cannot be empty.")
 
     menu_context.session.split_dataset(
         dataset_number, split_ratio, first_dataset_name, second_dataset_name
@@ -343,49 +436,68 @@ async def train_model(menu_context: "vsession.MenuContext"):
     list_models(menu_context)
 
     model_index: int | None = None
-
-    while (
-        model_index is None
-        or model_index >= len(menu_context.session.models)
-        or model_index < 0
-    ):
+    while True:
+        user_input = input(
+            "Please enter the index of the model to train (or type 'e' to exit): "
+        )
+        if user_input.lower() == "e":
+            return
         try:
-            model_index = int(input("Please enter the index of the model to train: "))
-
-        except ValueError as error:
-            print(error)
+            model_index = int(user_input)
+            if not (0 <= model_index < len(menu_context.session.models)):
+                print("Invalid index.")
+                continue
+            break
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
     list_datasets(menu_context)
 
     dataset_number: int | None = None
-
-    while (
-        dataset_number is None
-        or dataset_number >= len(menu_context.session.datasets)
-        or dataset_number < 0
-    ):
-        dataset_number = int(input("Please enter the index of the dataset to use: "))
+    while True:
+        user_input = input(
+            "Please enter the index of the dataset to use (or type 'e' to exit): "
+        )
+        if user_input.lower() == "e":
+            return
+        try:
+            dataset_number = int(user_input)
+            if not (0 <= dataset_number < len(menu_context.session.datasets)):
+                print("Invalid index.")
+                continue
+            break
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
     batch_size: int | None = None
-
-    while batch_size is None or batch_size <= 0:
+    while True:
+        user_input = input("Please enter the batch size (or type 'e' to exit): ")
+        if user_input.lower() == "e":
+            return
         try:
-            batch_size = int(input("Please enter the batch size: "))
-
-        except ValueError as error:
-            print(error)
-
-        if batch_size is not None and batch_size <= 0:
-            print("Please enter a positive value for the batch size.")
+            batch_size = int(user_input)
+            if batch_size <= 0:
+                print("Please enter a positive value for the batch size.")
+                continue
+            break
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
     iterations: int | None = None
-
-    while iterations is None or iterations <= 0:
+    while True:
+        user_input = input(
+            "Please enter the number of training iterations (or type 'e' to exit): "
+        )
+        if user_input.lower() == "e":
+            return
         try:
-            iterations = int(input("Please enter the number of training iterations: "))
-
-        except ValueError as error:
-            print(error)
+            iterations = int(user_input)
+            if iterations <= 0:
+                print("Please enter a positive number.")
+                continue
+            break
+        except ValueError:
+            print("Invalid input. Please enter a number.")
 
     _, model, optimizer, training_history = menu_context.session.models[model_index]
 
@@ -427,3 +539,4 @@ async def train_model(menu_context: "vsession.MenuContext"):
     print(
         f"Training complete. Final loss: {training_history.losses[-1][0]}, Final accuracy: {training_history.losses[-1][1]}"
     )
+
