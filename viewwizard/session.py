@@ -249,7 +249,7 @@ def prompt(context: MenuContext) -> bool:
     while (
         selection is None
         or not selection.isdigit()
-        or not (0 <= int(selection) < len(context.options))
+        or not (1 <= int(selection) <= len(context.options))
     ):
         for index, option in enumerate(context.options):
             print(f"{index + 1}: {option.diolague}")
