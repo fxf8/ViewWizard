@@ -207,3 +207,16 @@ class VideoDataset:
                 video_ids=self.video_ids[split_index:],
             ),
         )
+
+    def extend_dataset(self, other_dataset: "VideoDataset"):
+        self.videos.update(other_dataset.videos)
+        self.video_ids.extend(other_dataset.video_ids)
+
+    @classmethod
+    def merge_datasets(cls, datasets: list["VideoDataset"]):
+        merged_dataset = cls()
+
+        for dataset in datasets:
+            merged_dataset.extend_dataset(dataset)
+
+        return merged_dataset
