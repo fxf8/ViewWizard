@@ -262,9 +262,9 @@ def prompt(context: MenuContext) -> bool:
         if not selection.isdigit():
             print(f"Please enter a number. Your input `{selection}` is not a number.")
 
-        elif not (0 <= int(selection) < len(context.options)):
+        elif not (1 <= int(selection) <= len(context.options)):
             print(
-                f"Please enter a number between 0 and {len(context.options) - 1} (inclusive). Your input `{selection}` is out of range."
+                f"Please enter a number between 1 and {len(context.options)} (inclusive). Your input `{selection}` is out of range."
             )
 
     try:
