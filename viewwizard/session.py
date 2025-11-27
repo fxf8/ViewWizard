@@ -240,7 +240,7 @@ class MenuContext:
         self.options = options or DIOLAGUE_TREE
 
 
-def prompt(context: MenuContext):
+def prompt(context: MenuContext) -> bool:
     print("\nSelect an option:")
 
     selection: str | None = None
@@ -265,8 +265,13 @@ def prompt(context: MenuContext):
 
     chosen_option: MenuOption = context.options[int(cast(str, selection))]
 
+    if chosen_option.diolague == "Exit":
+        return False
+
     if chosen_option.callback is not None:
         chosen_option.callback(context)
 
     if chosen_option.suboptions is not None:
         prompt(MenuContext(context.session, chosen_option.suboptions))
+
+    return True

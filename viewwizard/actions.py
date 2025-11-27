@@ -14,13 +14,10 @@ if TYPE_CHECKING:
 def save_session(menu_context: "vsession.MenuContext"):
     save_path: pathlib.Path | None = None
 
-    while save_path is None or not save_path.exists():
+    while save_path is None:
         save_path = pathlib.Path(input("Please enter a path to save the session to: "))
 
-        if not save_path.exists():
-            print(f"The path provided `{save_path}` does not exist. Please try again.")
-
-        elif save_path.exists():
+        if save_path.exists():
             print(
                 f"Are you sure you want to overwrite the file at `{save_path}`? (y/n)"
             )
@@ -50,7 +47,7 @@ def load_session(menu_context: "vsession.MenuContext"):
         )
 
         if not load_path.exists():
-            print(f"The path provided `{load_path}` does not exist. Please try again.")
+            print(f"The path provided `{load_path}` does not exist.")
 
         try:
             menu_context.session = vsession.ProgramSession.load_from_path(load_path)
