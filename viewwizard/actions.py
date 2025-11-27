@@ -11,6 +11,18 @@ if TYPE_CHECKING:
     import viewwizard.session as vsession
 
 
+def create_session(menu_context: "vsession.MenuContext"):
+    should_create_new_session: bool = (
+        input(
+            "Are you sure you want to create a new session? The existing session will be lost unless it was already saved to a file (y/n)"
+        )
+        == "y"
+    )
+
+    if should_create_new_session:
+        menu_context.session = vsession.ProgramSession()
+
+
 def save_session(menu_context: "vsession.MenuContext"):
     save_path: pathlib.Path | None = None
 

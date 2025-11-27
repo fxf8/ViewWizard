@@ -192,6 +192,7 @@ DIOLAGUE_TREE: list[MenuOption] = [
     MenuOption(
         "Manage Session...",
         [
+            MenuOption("Create New Session", callback=vactions.create_session),
             MenuOption("Save Session", callback=vactions.save_session),
             MenuOption("Load Session", callback=vactions.load_session),
         ],
