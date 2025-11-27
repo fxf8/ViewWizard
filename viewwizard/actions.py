@@ -133,6 +133,8 @@ def delete_dataset(menu_context: "vsession.MenuContext"):
 
 
 def search_new_thumbnails(menu_context: "vsession.MenuContext"):
+    list_datasets(menu_context)
+
     dataset_number: int | None = None
 
     while (
@@ -176,6 +178,8 @@ def view_dataset(menu_context: "vsession.MenuContext"):
 
 
 def shuffle_dataset(menu_context: "vsession.MenuContext"):
+    list_datasets(menu_context)
+
     dataset_number: int | None = None
 
     while (
