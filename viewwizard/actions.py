@@ -1,15 +1,17 @@
-import asyncio
 from collections.abc import AsyncGenerator
 import pathlib
 import pickle
 import tabulate
+from typing import TYPE_CHECKING
 
 import viewwizard.database as vdb
 import viewwizard.model as vmodel
-import viewwizard.session as vsession
+
+if TYPE_CHECKING:
+    import viewwizard.session as vsession
 
 
-def save_session(menu_context: vsession.MenuContext):
+def save_session(menu_context: "vsession.MenuContext"):
     save_path: pathlib.Path | None = None
 
     while save_path is None or not save_path.exists():
@@ -35,7 +37,9 @@ def save_session(menu_context: vsession.MenuContext):
     )
 
 
-def load_session(menu_context: vsession.MenuContext):
+def load_session(menu_context: "vsession.MenuContext"):
+    import viewwizard.session as vsession
+
     load_path: pathlib.Path | None = None
     is_complete: bool = False
     is_session_loaded: bool = False
@@ -69,7 +73,7 @@ def load_session(menu_context: vsession.MenuContext):
         )
 
 
-def list_datasets(menu_context: vsession.MenuContext):
+def list_datasets(menu_context: "vsession.MenuContext"):
     table = [
         [
             index,
@@ -98,13 +102,13 @@ def list_datasets(menu_context: vsession.MenuContext):
     )
 
 
-def create_dataset(menu_context: vsession.MenuContext):
+def create_dataset(menu_context: "vsession.MenuContext"):
     dataset_name: str = input("Please enter the name of the dataset: ")
 
     menu_context.session.create_dataset(dataset_name)
 
 
-def delete_dataset(menu_context: vsession.MenuContext):
+def delete_dataset(menu_context: "vsession.MenuContext"):
     list_datasets(menu_context)
 
     dataset_number: int | None = None
@@ -119,7 +123,7 @@ def delete_dataset(menu_context: vsession.MenuContext):
     menu_context.session.delete_dataset(dataset_number)
 
 
-def search_new_thumbnails(menu_context: vsession.MenuContext):
+def search_new_thumbnails(menu_context: "vsession.MenuContext"):
     dataset_number: int | None = None
 
     while (
@@ -142,7 +146,7 @@ def search_new_thumbnails(menu_context: vsession.MenuContext):
     )
 
 
-def view_dataset(menu_context: vsession.MenuContext):
+def view_dataset(menu_context: "vsession.MenuContext"):
     list_datasets(menu_context)
 
     dataset_number: int | None = None
@@ -162,7 +166,7 @@ def view_dataset(menu_context: vsession.MenuContext):
     print(f"Dataset Video IDs: {dataset.video_ids}")
 
 
-def shuffle_dataset(menu_context: vsession.MenuContext):
+def shuffle_dataset(menu_context: "vsession.MenuContext"):
     dataset_number: int | None = None
 
     while (
@@ -177,7 +181,7 @@ def shuffle_dataset(menu_context: vsession.MenuContext):
     menu_context.session.datasets[dataset_number][1].shuffle_dataset()
 
 
-def merge_datasets(menu_context: vsession.MenuContext):
+def merge_datasets(menu_context: "vsession.MenuContext"):
     list_datasets(menu_context)
 
     dataset_number_1: int | None = None
@@ -221,7 +225,7 @@ def merge_datasets(menu_context: vsession.MenuContext):
     menu_context.session.datasets.append((merged_dataset_name, merged_dataset))
 
 
-def split_dataset(menu_context: vsession.MenuContext):
+def split_dataset(menu_context: "vsession.MenuContext"):
     list_datasets(menu_context)
 
     dataset_number: int | None = None
@@ -261,7 +265,7 @@ def split_dataset(menu_context: vsession.MenuContext):
     )
 
 
-def list_models(menu_context: vsession.MenuContext):
+def list_models(menu_context: "vsession.MenuContext"):
     print(
         tabulate.tabulate(
             [
@@ -290,7 +294,7 @@ def list_models(menu_context: vsession.MenuContext):
     )
 
 
-async def train_model(menu_context: vsession.MenuContext):
+async def train_model(menu_context: "vsession.MenuContext"):
     list_models(menu_context)
 
     model_index: int | None = None
