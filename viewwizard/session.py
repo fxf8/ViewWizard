@@ -9,14 +9,14 @@ import uuid
 import googleapiclient.discovery as discovery
 import torch
 
-import viewwizard.database as db
+import viewwizard.database as vdb
 import viewwizard.model as vmodel
 import viewwizard.actions as vactions
 
 
 class ProgramSession:
     session_id: uuid.UUID
-    datasets: list[tuple[str, db.VideoDataset]]
+    datasets: list[tuple[str, vdb.VideoDataset]]
     models: list[
         tuple[
             vmodel.ThumbnailStatisticsModel,
@@ -107,17 +107,20 @@ class ProgramSession:
         resource: discovery.Resource | None = self.client
 
         if resource is None:
-            resource = db.create_client()
+            resource = vdb.create_client()
 
         self.client = resource
 
         return resource
 
     def create_dataset(self, name: str):
-        self.datasets.append((name, db.VideoDataset()))
+        self.datasets.append((name, vdb.VideoDataset()))
 
     def search_new_thumbnails(
-        self, dataset_number: int, search_count: int
+        self,
+        dataset_number: int,
+        search_count: int,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> int | None:
         if dataset_number >= len(self.datasets):
             return None
@@ -126,15 +129,17 @@ class ProgramSession:
 
         _, dataset = self.datasets[dataset_number]
 
-        new_ids: list[str] = sum(
-            [
-                db.sample_random_search_ids(
-                    client, db.create_random_query(random.randint(2, 4))
+        new_ids: list[str] = []
+
+        for index in range(search_count):
+            new_ids.extend(
+                vdb.sample_random_search_ids(
+                    client, vdb.create_random_query(random.randint(2, 4))
                 )
-                for _ in range(search_count)
-            ],
-            [],
-        )
+            )
+
+            if progress_callback is not None:
+                progress_callback(index, search_count)
 
         dataset.add_ids(new_ids)
         dataset.sync_id_video_data(client)
@@ -185,9 +190,9 @@ DIOLAGUE_TREE: list[MenuOption] = [
         "Manage Datasets...",
         [
             MenuOption("List Datasets", callback=vactions.list_datasets),
-            MenuOption("View Dataset Information", callback=vactions.view_dataset),
             MenuOption("Create Dataset", callback=vactions.create_dataset),
             MenuOption("Delete Dataset", callback=vactions.delete_dataset),
+            MenuOption("View Dataset Information", callback=vactions.view_dataset),
             MenuOption(
                 "Search New Thumbnails", callback=vactions.search_new_thumbnails
             ),
