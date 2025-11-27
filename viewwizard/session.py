@@ -252,7 +252,7 @@ def prompt(context: MenuContext) -> bool:
         or not (0 <= int(selection) < len(context.options))
     ):
         for index, option in enumerate(context.options):
-            print(f"{index}: {option.diolague}")
+            print(f"{index + 1}: {option.diolague}")
 
         selection = input("> ")
 
@@ -268,7 +268,7 @@ def prompt(context: MenuContext) -> bool:
             )
 
     try:
-        chosen_option: MenuOption = context.options[int(cast(str, selection))]
+        chosen_option: MenuOption = context.options[int(cast(str, selection)) - 1]
 
         if chosen_option.callback is not None:
             chosen_option.callback(context)
