@@ -19,5 +19,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "debugpy>=1.8.17",
     "matplotlib>=3.10.7",
 ]
