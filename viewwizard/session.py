@@ -230,7 +230,21 @@ DIOLAGUE_TREE: list[MenuOption] = [
 
 class MenuContext:
     session: ProgramSession
-    options: list[MenuOption] = DIOLAGUE_TREE
+    diolague_tree: list[MenuOption] = DIOLAGUE_TREE
+    location: list[int] = []
+
+    def options(self) -> list[MenuOption] | None:
+        # Uses location and diolague_tree to get the current options
+
+        options: list[MenuOption] | None = self.diolague_tree
+
+        for index in self.location:
+            if options is None:
+                return None
+
+            options = options[index].suboptions
+
+        return options
 
     def __init__(
         self,
@@ -238,43 +252,58 @@ class MenuContext:
         options: list[MenuOption] | None = None,
     ):
         self.session = session
-        self.options = options or DIOLAGUE_TREE
+        self.diolague_tree = options or DIOLAGUE_TREE
 
 
 def prompt(context: MenuContext) -> bool:
     print("\nSelect an option (or type 'e' to exit to the previous menu):")
 
     selection: str | None = None
+    options_list: list[MenuOption] | None = context.options()
+
+    if options_list is None:
+        return False
 
     while (
         selection is None
         or not selection.isdigit()
-        or not (1 <= int(selection) <= len(context.options))
+        or not (1 <= int(selection) <= len(options_list))
     ):
-        for index, option in enumerate(context.options):
+        for index, option in enumerate(options_list):
             print(f"{index + 1}: {option.diolague}")
 
         selection = input("> ")
 
         if selection.lower() == "e":
-            return False
+            if len(context.location) > 0:
+                context.location.pop()
+
+                return True
+            else:
+                return False
 
         if not selection.isdigit():
             print(f"Please enter a number. Your input `{selection}` is not a number.")
 
-        elif not (1 <= int(selection) <= len(context.options)):
+        elif not (1 <= int(selection) <= len(options_list)):
             print(
-                f"Please enter a number between 1 and {len(context.options)} (inclusive). Your input `{selection}` is out of range."
+                f"Please enter a number between 1 and {len(options_list)} (inclusive). Your input `{selection}` is out of range."
             )
 
     try:
-        chosen_option: MenuOption = context.options[int(cast(str, selection)) - 1]
+        user_selection: int = int(cast(str, selection)) - 1
+        context.location.append(user_selection)
+
+        chosen_option: MenuOption = options_list[user_selection]
 
         if chosen_option.callback is not None:
             chosen_option.callback(context)
 
         if chosen_option.suboptions is not None:
-            prompt(MenuContext(context.session, chosen_option.suboptions))
+            prompt(context)
+
+        else:
+            context.location.pop()
 
         return True
 
