@@ -217,6 +217,8 @@ DIOLAGUE_TREE: list[MenuOption] = [
         "Manage Models...",
         [
             MenuOption("List Models", callback=vactions.list_models),
+            MenuOption("Create Model", callback=vactions.create_model),
+            MenuOption("Delete Model", callback=vactions.delete_model),
             MenuOption(
                 "Train Model",
                 callback=lambda menu_context: asyncio.run(

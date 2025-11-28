@@ -167,7 +167,6 @@ class VideoDataset:
                             [
                                 await video_data.image_tensor(aiohttp_session)
                                 for _, video_data in samples
-                                if isinstance(video_data.thumbnail, torch.Tensor)
                             ]
                         ),
                         view_count=torch.stack(

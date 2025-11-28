@@ -1,8 +1,10 @@
 from collections.abc import AsyncGenerator
 import pathlib
 import pickle
-import tabulate
 from typing import TYPE_CHECKING
+
+import tabulate
+import torch
 
 import viewwizard.database as vdb
 import viewwizard.model as vmodel
@@ -273,6 +275,7 @@ def shuffle_dataset(menu_context: "vsession.MenuContext"):
 def merge_datasets(menu_context: "vsession.MenuContext"):
     if len(menu_context.session.datasets) < 2:
         print("There are not enough datasets to merge (there must be at least two).")
+
         return
 
     list_datasets(menu_context)
@@ -282,14 +285,19 @@ def merge_datasets(menu_context: "vsession.MenuContext"):
         user_input = input(
             "Please enter the index of the first dataset to merge (or type 'e' to exit): "
         )
+
         if user_input.lower() == "e":
             return
+
         try:
             dataset_number_1 = int(user_input)
             if not (0 <= dataset_number_1 < len(menu_context.session.datasets)):
                 print("Invalid index.")
+
                 continue
+
             break
+
         except ValueError:
             print("Invalid input. Please enter a number.")
 
@@ -298,17 +306,24 @@ def merge_datasets(menu_context: "vsession.MenuContext"):
         user_input = input(
             "Please enter the index of the second dataset to merge (or type 'e' to exit): "
         )
+
         if user_input.lower() == "e":
             return
+
         try:
             dataset_number_2 = int(user_input)
+
             if not (0 <= dataset_number_2 < len(menu_context.session.datasets)):
                 print("Invalid index.")
+
                 continue
+
             if dataset_number_1 == dataset_number_2:
                 print("Cannot merge a dataset with itself.")
+
                 continue
             break
+
         except ValueError:
             print("Invalid input. Please enter a number.")
 
@@ -318,11 +333,15 @@ def merge_datasets(menu_context: "vsession.MenuContext"):
         user_input = input(
             f"Please enter the name of the merged dataset (default {default_merged_dataset_name}, or type 'e' to exit): "
         )
+
         if user_input.lower() == "e":
             return
+
         merged_dataset_name = user_input or default_merged_dataset_name
+
         if merged_dataset_name:
             break
+
         else:
             print("Dataset name cannot be empty.")
 
@@ -378,11 +397,15 @@ def split_dataset(menu_context: "vsession.MenuContext"):
         user_input = input(
             f"Please enter the name of the first dataset (default {default_first_dataset_name}, or type 'e' to exit): "
         )
+
         if user_input.lower() == "e":
             return
+
         first_dataset_name = user_input or default_first_dataset_name
+
         if first_dataset_name:
             break
+
         else:
             print("Dataset name cannot be empty.")
 
@@ -390,11 +413,15 @@ def split_dataset(menu_context: "vsession.MenuContext"):
         user_input = input(
             f"Please enter the name of the second dataset (default {default_second_dataset_name}, or type 'e' to exit): "
         )
+
         if user_input.lower() == "e":
             return
+
         second_dataset_name = user_input or default_second_dataset_name
+
         if second_dataset_name:
             break
+
         else:
             print("Dataset name cannot be empty.")
 
@@ -411,8 +438,8 @@ def list_models(menu_context: "vsession.MenuContext"):
                     index,
                     model_name,
                     type(optimizer).__name__,
-                    training_history.losses[-1][0],
-                    training_history.losses[-1][1],
+                    training_history.losses[-1][0] if training_history.losses else None,
+                    training_history.losses[-1][1] if training_history.losses else None,
                 ]
                 for index, (
                     model_name,
@@ -432,70 +459,194 @@ def list_models(menu_context: "vsession.MenuContext"):
     )
 
 
+def create_model(menu_context: "vsession.MenuContext"):
+    default_model_name: str = f"New Model {len(menu_context.session.models) + 1}"
+    model_name: str
+
+    while True:
+        user_input = input(
+            f"Please enter the name of the model (default {default_model_name}, or type 'e' to exit): "
+        )
+
+        if user_input.lower() == "e":
+            return
+
+        if user_input == "":
+            model_name = default_model_name
+
+            break
+
+        model_name = user_input or default_model_name
+
+        if model_name:
+            break
+
+        else:
+            print("Model name cannot be empty.")
+
+    default_learning_rate: float = 0.001
+    learning_rate: float
+
+    while True:
+        user_input = input(
+            f"Please enter the learning rate (default {default_learning_rate}, or type 'e' to exit): "
+        )
+
+        if user_input.lower() == "e":
+            return
+
+        if user_input == "":
+            learning_rate = default_learning_rate
+
+            break
+
+        try:
+            learning_rate = float(user_input)
+
+            break
+
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+    model: vmodel.ThumbnailStatisticsModel = vmodel.ThumbnailStatisticsModel()
+    optimizer: torch.optim.Adam = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    menu_context.session.models.append(
+        (model_name, model, optimizer, vmodel.ModelTrainingHistory())
+    )
+
+    print(
+        f"Successfully created model '{model_name}' with learning rate {learning_rate} and optimizer {type(optimizer).__name__}."
+    )
+
+
+def delete_model(menu_context: "vsession.MenuContext"):
+    if len(menu_context.session.models) == 0:
+        print("There are no models to delete.")
+
+        return
+
+    list_models(menu_context)
+
+    model_number: int | None = None
+
+    while True:
+        user_input = input(
+            "Please enter the index of the model to delete (or type 'e' to exit): "
+        )
+
+        if user_input.lower() == "e":
+            return
+
+        try:
+            model_number = int(user_input)
+
+            if not (0 <= model_number < len(menu_context.session.models)):
+                print(
+                    f"Invalid index: {model_number}, input must be between 0 and {len(menu_context.session.models) - 1}"
+                )
+
+                continue
+            break
+
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+    del menu_context.session.models[model_number]
+
+
 async def train_model(menu_context: "vsession.MenuContext"):
+    if len(menu_context.session.models) == 0:
+        print("There are no models to train.")
+
+        return
+
     list_models(menu_context)
 
     model_index: int | None = None
+
     while True:
         user_input = input(
             "Please enter the index of the model to train (or type 'e' to exit): "
         )
+
         if user_input.lower() == "e":
             return
+
         try:
             model_index = int(user_input)
+
             if not (0 <= model_index < len(menu_context.session.models)):
                 print("Invalid index.")
+
                 continue
             break
+
         except ValueError:
             print("Invalid input. Please enter a number.")
 
     list_datasets(menu_context)
 
     dataset_number: int | None = None
+
     while True:
         user_input = input(
             "Please enter the index of the dataset to use (or type 'e' to exit): "
         )
+
         if user_input.lower() == "e":
             return
+
         try:
             dataset_number = int(user_input)
+
             if not (0 <= dataset_number < len(menu_context.session.datasets)):
                 print("Invalid index.")
+
                 continue
             break
+
         except ValueError:
             print("Invalid input. Please enter a number.")
 
     batch_size: int | None = None
+
     while True:
         user_input = input("Please enter the batch size (or type 'e' to exit): ")
+
         if user_input.lower() == "e":
             return
         try:
             batch_size = int(user_input)
+
             if batch_size <= 0:
                 print("Please enter a positive value for the batch size.")
+
                 continue
             break
+
         except ValueError:
             print("Invalid input. Please enter a number.")
 
     iterations: int | None = None
+
     while True:
         user_input = input(
             "Please enter the number of training iterations (or type 'e' to exit): "
         )
+
         if user_input.lower() == "e":
             return
+
         try:
             iterations = int(user_input)
+
             if iterations <= 0:
                 print("Please enter a positive number.")
+
                 continue
             break
+
         except ValueError:
             print("Invalid input. Please enter a number.")
 
@@ -507,12 +658,10 @@ async def train_model(menu_context: "vsession.MenuContext"):
         )
     )
 
-    total_batches: int = len(menu_context.session.datasets[dataset_number][1].video_ids)
-    current_batches_used: int = 0
-    thresholds: list[int] = [int(total_batches * i / 10) for i in range(1, 11)]
+    thresholds: list[int] = [int(iterations * i / 10) for i in range(1, 11)]
 
-    async for batch in batches:
-        current_batches_used += 1
+    for iteration in range(iterations):
+        batch: vmodel.ThumbnailStatisticsTrainingBatch = await anext(batches)
 
         training_record: vmodel.ModelTrainingHistory = vmodel.train_model_batch(
             model, batch, optimizer
@@ -521,7 +670,7 @@ async def train_model(menu_context: "vsession.MenuContext"):
         training_history.merge(training_record)
 
         thresholds_passsed: list[int] = [
-            threshold for threshold in thresholds if threshold <= current_batches_used
+            threshold for threshold in thresholds if threshold <= iteration
         ]
 
         if len(thresholds_passsed) > 0:
@@ -533,7 +682,7 @@ async def train_model(menu_context: "vsession.MenuContext"):
             ]
 
             print(
-                f"Progress: {current_batches_used}/{total_batches} ({100 * current_batches_used / total_batches:.2f}%)"
+                f"Progress: {iteration}/{iterations} ({100 * iteration / iterations:.2f}%)"
             )
 
     print(
