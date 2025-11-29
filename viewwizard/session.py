@@ -225,6 +225,7 @@ DIOLAGUE_TREE: list[MenuOption] = [
                     vactions.train_model(menu_context)
                 ),
             ),
+            MenuOption("View Model Training History Graph", callback=vactions.view_training_history),
         ],
     ),
 ]

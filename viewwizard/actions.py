@@ -3,6 +3,12 @@ import pathlib
 import pickle
 from typing import TYPE_CHECKING
 
+import matplotlib
+
+matplotlib.use("QtAgg")
+
+import matplotlib.pyplot as plt
+
 import tabulate
 import torch
 
@@ -688,3 +694,52 @@ async def train_model(menu_context: "vsession.MenuContext"):
     print(
         f"Training complete. Final loss: {training_history.losses[-1][0]}, Final accuracy: {training_history.losses[-1][1]}"
     )
+
+
+def view_training_history(menu_context: "vsession.MenuContext"):
+    if len(menu_context.session.models) == 0:
+        print("There are no models to view.")
+
+        return
+
+    list_models(menu_context)
+
+    model_index: int | None = None
+
+    while True:
+        user_input = input(
+            "Please enter the index of the model to view (or type 'e' to exit): "
+        )
+
+        if user_input.lower() == "e":
+            return
+
+        try:
+            model_index = int(user_input)
+
+            if not (0 <= model_index < len(menu_context.session.models)):
+                print("Invalid index.")
+
+                continue
+            break
+
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+    model_name, _, optimizer, training_history = menu_context.session.models[
+        model_index
+    ]
+
+    graph_title: str = f"{model_name} Training History (Learning Rate: {optimizer.param_groups[0]['lr']})"
+    horizontal_label: str = "Training Iterations"
+    vertical_label: str = "Loss (L1 Loss)"
+
+    iterations: list[int] = [loss[0] for loss in training_history.losses]
+    losses: list[float] = [loss[1] for loss in training_history.losses]
+
+    plt.plot(iterations, losses)
+    plt.title(graph_title)
+    plt.xlabel(horizontal_label)
+    plt.ylabel(vertical_label)
+
+    plt.show()
