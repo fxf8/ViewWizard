@@ -14,7 +14,7 @@ class ThumbnailStatisticsModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.encoder = torchvision.models.resnet18(weights="DEFAULT")
+        self.encoder = torchvision.models.squeezenet1_1(weights="DEFAULT")
 
         for parameter in self.encoder.parameters():
             parameter.requires_grad = False
