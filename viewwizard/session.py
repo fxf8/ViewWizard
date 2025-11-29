@@ -225,7 +225,16 @@ DIOLAGUE_TREE: list[MenuOption] = [
                     vactions.train_model(menu_context)
                 ),
             ),
-            MenuOption("View Model Training History Graph", callback=vactions.view_training_history),
+            MenuOption(
+                "View Model Training History Graph",
+                callback=vactions.view_training_history,
+            ),
+            MenuOption(
+                "Validate Model",
+                callback=lambda menu_context: asyncio.run(
+                    vactions.validate_model(menu_context)
+                ),
+            ),
         ],
     ),
 ]

@@ -14,17 +14,6 @@ class ThumbnailStatisticsModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-        """
-        self.encoder = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=8, kernel_size=3),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3),
-            nn.ReLU(),
-            nn.AdaptiveAvgPool2d(output_size=(1, 1)),
-            nn.Flatten(),
-        )
-        """
-
         self.encoder = torchvision.models.resnet18(weights="DEFAULT")
 
         for parameter in self.encoder.parameters():

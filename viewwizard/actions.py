@@ -9,6 +9,7 @@ matplotlib.use("QtAgg")
 
 import matplotlib.pyplot as plt
 
+import aiohttp
 import tabulate
 import torch
 
@@ -229,18 +230,24 @@ def view_dataset(menu_context: "vsession.MenuContext"):
     list_datasets(menu_context)
 
     dataset_number: int | None = None
+
     while True:
         user_input = input(
             "Please enter the index of the dataset to view (or type 'e' to exit): "
         )
+
         if user_input.lower() == "e":
             return
+
         try:
             dataset_number = int(user_input)
+
             if not (0 <= dataset_number < len(menu_context.session.datasets)):
                 print("Invalid index.")
+
                 continue
             break
+
         except ValueError:
             print("Invalid input. Please enter a number.")
 
@@ -248,7 +255,7 @@ def view_dataset(menu_context: "vsession.MenuContext"):
 
     print(f"Dataset Name: {dataset_name}")
     print(f"Dataset ID: {dataset.dataset_id}")
-    print(f"Dataset Video Count: {len(dataset.video_ids)}")
+    print(f"Dataset Video Count: {len(dataset.videos)}")
     print(f"Dataset Video ID Count: {len(dataset.video_ids)}")
 
 
@@ -433,6 +440,56 @@ def split_dataset(menu_context: "vsession.MenuContext"):
 
     menu_context.session.split_dataset(
         dataset_number, split_ratio, first_dataset_name, second_dataset_name
+    )
+
+
+def rename_dataset(menu_context: "vsession.MenuContext"):
+    list_datasets(menu_context)
+
+    dataset_number: int | None = None
+
+    while True:
+        user_input = input(
+            "Please enter the index of the dataset to rename (or type 'e' to exit): "
+        )
+
+        if user_input.lower() == "e":
+            return
+
+        try:
+            dataset_number = int(user_input)
+
+            if not (0 <= dataset_number < len(menu_context.session.datasets)):
+                print("Invalid index.")
+
+                continue
+            break
+
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+    default_dataset_name: str = menu_context.session.datasets[dataset_number][0]
+
+    while True:
+        user_input = input(
+            f"Please enter the new name of the dataset (default {default_dataset_name}, or type 'e' to exit): "
+        )
+
+        if user_input.lower() == "e":
+            return
+
+        if user_input != "":
+            break
+
+    old_dataset_name: str = menu_context.session.datasets[dataset_number][0]
+
+    menu_context.session.datasets[dataset_number] = (
+        user_input,
+        menu_context.session.datasets[dataset_number][1],
+    )
+
+    print(
+        f"Dataset {old_dataset_name} renamed to {user_input} at index {dataset_number}."
     )
 
 
@@ -743,3 +800,104 @@ def view_training_history(menu_context: "vsession.MenuContext"):
     plt.ylabel(vertical_label)
 
     plt.show()
+
+
+async def validate_model(menu_context: "vsession.MenuContext"):
+    if len(menu_context.session.models) == 0:
+        print("There are no models to validate.")
+
+        return
+
+    if len(menu_context.session.datasets) == 0:
+        print("There are no datasets to validate.")
+
+        return
+
+    list_models(menu_context)
+
+    model_index: int | None = None
+
+    while True:
+        user_input = input(
+            "Please enter the index of the model to validate (or type 'e' to exit): "
+        )
+
+        if user_input.lower() == "e":
+            return
+
+        try:
+            model_index = int(user_input)
+
+            if not (0 <= model_index < len(menu_context.session.models)):
+                print("Invalid index.")
+
+                continue
+            break
+
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+    list_datasets(menu_context)
+
+    dataset_number: int | None = None
+
+    while True:
+        user_input = input(
+            "Please enter the index of the dataset to validate (or type 'e' to exit): "
+        )
+
+        if user_input.lower() == "e":
+            return
+
+        try:
+            dataset_number = int(user_input)
+
+            if not (0 <= dataset_number < len(menu_context.session.datasets)):
+                print("Invalid index.")
+
+                continue
+            break
+
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+    model_name, model, optimizer, _ = menu_context.session.models[model_index]
+
+    validation_dataset: vdb.VideoDataset = menu_context.session.datasets[
+        dataset_number
+    ][1]
+
+    validation_tensors: list[torch.Tensor] = []
+
+    async with aiohttp.ClientSession() as aiohttp_session:
+        validation_tensors: list[torch.Tensor] = [
+            await validation_tensor.image_tensor(aiohttp_session)
+            for validation_tensor in validation_dataset.videos.values()
+        ]
+
+    validation_tensor_batch: torch.Tensor = torch.stack(validation_tensors)
+
+    model_output: torch.Tensor = model(validation_tensor_batch)
+    expected_output: torch.Tensor = torch.log10(
+        torch.stack(
+            [
+                torch.tensor(float(video_data.video_data["statistics"]["viewCount"]))
+                for video_data in validation_dataset.videos.values()
+            ]
+        )
+    )
+
+    print(
+        f"Validation Report for Model: '{model_name}' Optimizer Type: '{type(optimizer).__name__}' Learning Rate {optimizer.param_groups[0]['lr']}"
+    )
+    print(f"{expected_output = }")
+    print(f"{model_output = }")
+
+    difference: torch.Tensor = torch.abs(model_output - expected_output)
+
+    print(f"{difference = }")
+
+    percent_error: torch.Tensor = (difference / expected_output) * 100
+
+    print(f"{percent_error = }")
+    print(f"{torch.mean(percent_error) = }")
