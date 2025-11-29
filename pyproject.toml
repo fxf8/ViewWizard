@@ -8,6 +8,7 @@ dependencies = [
     "aiohttp>=3.13.2",
     "google-api-python-client>=2.187.0",
     "ipython>=9.7.0",
+    "matplotlib>=3.10.7",
     "pillow>=12.0.0",
     "python-dotenv>=1.2.1",
     "requests>=2.32.5",
@@ -20,5 +21,4 @@ dependencies = [
 [dependency-groups]
 dev = [
     "debugpy>=1.8.17",
-    "matplotlib>=3.10.7",
 ]
