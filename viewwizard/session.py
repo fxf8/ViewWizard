@@ -211,6 +211,7 @@ DIOLAGUE_TREE: list[MenuOption] = [
             MenuOption("Shuffle Dataset", callback=vactions.shuffle_dataset),
             MenuOption("Merge Datasets", callback=vactions.merge_datasets),
             MenuOption("Split Dataset", callback=vactions.split_dataset),
+            MenuOption("Rename Dataset", callback=vactions.rename_dataset),
         ],
     ),
     MenuOption(
