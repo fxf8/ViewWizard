@@ -29,7 +29,14 @@ class ThumbnailStatisticsModel(torch.nn.Module):
         and returns a tensor of shape (batch_size, 2)
         """
 
-        encoded_image: torch.Tensor = self.encoder(image)
+        image_resized = torch.nn.functional.interpolate(
+            image,
+            size=(244, 244),
+            mode="bilinear",
+            align_corners=False,
+        )
+
+        encoded_image: torch.Tensor = self.encoder(image_resized)
 
         return self.regression(encoded_image)
 
@@ -64,7 +71,7 @@ def train_model_batch(
     predicted_view_count = model(sample.image)
 
     view_count_loss = torch.nn.functional.l1_loss(
-        predicted_view_count, torch.log10(sample.view_count)
+        predicted_view_count, torch.log10(sample.view_count + 1)
     )
 
     training_history.add_loss(view_count_loss.item())

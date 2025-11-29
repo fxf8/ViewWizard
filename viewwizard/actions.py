@@ -1,7 +1,8 @@
-from collections.abc import AsyncGenerator
+import asyncio
 import pathlib
 import pickle
 from typing import TYPE_CHECKING
+import uuid
 
 import matplotlib
 
@@ -178,44 +179,57 @@ def delete_dataset(menu_context: "vsession.MenuContext"):
 def search_new_thumbnails(menu_context: "vsession.MenuContext"):
     if len(menu_context.session.datasets) == 0:
         print("There are no datasets to search.")
+
         return
 
     list_datasets(menu_context)
 
     dataset_number: int | None = None
+
     while True:
         user_input = input(
             "Please enter the index of the dataset to search (or type 'e' to exit): "
         )
+
         if user_input.lower() == "e":
             return
+
         try:
             dataset_number = int(user_input)
+
             if not (0 <= dataset_number < len(menu_context.session.datasets)):
                 print("Invalid index.")
+
                 continue
             break
+
         except ValueError:
             print("Invalid input. Please enter a number.")
 
     search_count: int | None = None
+
     while True:
         user_input = input(
             "Please enter the number of times to search (or type 'e' to exit): "
         )
+
         if user_input.lower() == "e":
             return
+
         try:
             search_count = int(user_input)
+
             if search_count <= 0:
                 print("Please enter a positive number.")
+
                 continue
             break
+
         except ValueError:
             print("Invalid input. Please enter a number.")
 
     def progress_callback(current: int, total: int):
-        print(f"Progress: {current}/{total}")
+        print(f"Progress: {current + 1}/{total}")
 
     menu_context.session.search_new_thumbnails(
         dataset_number, search_count, progress_callback
@@ -225,6 +239,7 @@ def search_new_thumbnails(menu_context: "vsession.MenuContext"):
 def view_dataset(menu_context: "vsession.MenuContext"):
     if len(menu_context.session.datasets) == 0:
         print("There are no datasets to view.")
+
         return
 
     list_datasets(menu_context)
@@ -715,16 +730,22 @@ async def train_model(menu_context: "vsession.MenuContext"):
 
     _, model, optimizer, training_history = menu_context.session.models[model_index]
 
-    batches: AsyncGenerator[vmodel.ThumbnailStatisticsTrainingBatch, None] = (
-        menu_context.session.datasets[dataset_number][1].get_training_batches(
-            batch_size
-        )
+    batches: list[
+        vmodel.ThumbnailStatisticsTrainingBatch
+    ] = await menu_context.session.datasets[dataset_number][1].get_training_batches(
+        batch_size
     )
 
     thresholds: list[int] = [int(iterations * i / 10) for i in range(1, 11)]
+    iteration = 0
 
-    for iteration in range(iterations):
-        batch: vmodel.ThumbnailStatisticsTrainingBatch = await anext(batches)
+    for batch in batches:
+        iteration += 1
+
+        if iteration > iterations:
+            print("Finished training early due to finishing batches.")
+
+            break
 
         training_record: vmodel.ModelTrainingHistory = vmodel.train_model_batch(
             model, batch, optimizer
@@ -749,7 +770,7 @@ async def train_model(menu_context: "vsession.MenuContext"):
             )
 
     print(
-        f"Training complete. Final loss: {training_history.losses[-1][0]}, Final accuracy: {training_history.losses[-1][1]}"
+        f"Training complete. Final iteration: {training_history.losses[-1][0]}, Final loss: {training_history.losses[-1][1]}"
     )
 
 
@@ -867,37 +888,69 @@ async def validate_model(menu_context: "vsession.MenuContext"):
         dataset_number
     ][1]
 
-    validation_tensors: list[torch.Tensor] = []
+    validation_views_map: dict[uuid.UUID, str] = {
+        video_data.video_data_id: video_data.video_data["statistics"]["viewCount"]
+        for video_data in validation_dataset.videos.values()
+    }
+
+    validation_tensors: list[tuple[uuid.UUID, torch.Tensor]] = []
 
     async with aiohttp.ClientSession() as aiohttp_session:
-        validation_tensors: list[torch.Tensor] = [
-            await validation_tensor.image_tensor(aiohttp_session)
-            for validation_tensor in validation_dataset.videos.values()
-        ]
-
-    validation_tensor_batch: torch.Tensor = torch.stack(validation_tensors)
-
-    model_output: torch.Tensor = model(validation_tensor_batch)
-    expected_output: torch.Tensor = torch.log10(
-        torch.stack(
-            [
-                torch.tensor(float(video_data.video_data["statistics"]["viewCount"]))
-                for video_data in validation_dataset.videos.values()
-            ]
+        validation_tensors = await asyncio.gather(
+            *(
+                validation_tensor.image_tensor(aiohttp_session)
+                for validation_tensor in validation_dataset.videos.values()
+            )
         )
+
+    validation_thumbnail_tensors_map: dict[uuid.UUID, torch.Tensor] = {
+        video_data_id: image_tensor
+        for video_data_id, image_tensor in validation_tensors
+    }
+
+    available_video_data_ids: list[uuid.UUID] = [
+        *validation_thumbnail_tensors_map.keys()
+    ]
+
+    validation_tensor_batch: torch.Tensor = torch.stack(
+        [
+            vdb.image_rescaler(
+                validation_thumbnail_tensors_map[video_data_id], (244, 244)
+            )
+            for video_data_id in available_video_data_ids
+        ]
     )
+
+    print(f"{validation_tensor_batch.shape = }")
+
+    model_output_log: torch.Tensor = model(validation_tensor_batch)
+
+    actual_views = torch.tensor(
+        [
+            int(validation_views_map[video_data_id])
+            for video_data_id in available_video_data_ids
+        ],
+        dtype=torch.float32,
+    )
+    actual_views_log = torch.log10(actual_views + 1)
+
+    # The model predicts log10(views + 1), so we reverse it
+    predicted_views = torch.pow(10, model_output_log.squeeze()) - 1
 
     print(
         f"Validation Report for Model: '{model_name}' Optimizer Type: '{type(optimizer).__name__}' Learning Rate {optimizer.param_groups[0]['lr']}"
     )
-    print(f"{expected_output = }")
-    print(f"{model_output = }")
+    print(f"Log of Actual Views (sample): {actual_views_log[:5]}")
+    print(f"Log of Predicted Views (sample): {model_output_log.squeeze()[:5]}")
 
-    difference: torch.Tensor = torch.abs(model_output - expected_output)
+    # Calculate difference in log space (which is what the model was trained on)
+    log_difference = torch.abs(model_output_log.squeeze() - actual_views_log)
+    print(f"Mean Absolute Error (log10 space): {torch.mean(log_difference)}")
 
-    print(f"{difference = }")
+    # Calculate difference and percent error in original view count space
+    difference = torch.abs(predicted_views - actual_views)
+    # Add a small epsilon to avoid division by zero for videos with 0 views
+    percent_error = (difference / (actual_views + 1e-7)) * 100
 
-    percent_error: torch.Tensor = (difference / expected_output) * 100
-
-    print(f"{percent_error = }")
-    print(f"{torch.mean(percent_error) = }")
+    print(f"Mean Absolute Error (view count): {torch.mean(difference)}")
+    print(f"Mean Percentage Error (view count): {torch.mean(percent_error)}%")

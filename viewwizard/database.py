@@ -1,4 +1,4 @@
-from collections.abc import AsyncGenerator, Collection, Generator, Sequence
+from collections.abc import Collection, Generator, Sequence
 import string
 import asyncio
 from dataclasses import dataclass, field
@@ -36,7 +36,7 @@ class VideoData:
     async def image_tensor(
         self,
         session: aiohttp.ClientSession,
-    ) -> torch.Tensor:
+    ) -> tuple[uuid.UUID, torch.Tensor]:
         if isinstance(self.thumbnail, yarl.URL):
             async with session.get(
                 str(self.thumbnail)
@@ -51,7 +51,7 @@ class VideoData:
 
                 self.thumbnail = torchvision.transforms.ToTensor()(pil_image)
 
-        return self.thumbnail
+        return self.video_data_id, self.thumbnail
 
 
 def create_random_query(query_size: int) -> str:
@@ -59,9 +59,18 @@ def create_random_query(query_size: int) -> str:
 
 
 def chunked[T](
-    iterable: Sequence[T], chunk_size: int
+    iterable: Sequence[T], chunk_size: int, chunk_count: int | None = None
 ) -> Generator[Sequence[T], None, None]:
-    for index in range(0, len(iterable), chunk_size):
+    num_chunks: int = 0
+
+    for index in range(
+        0,
+        len(iterable),
+        chunk_size,
+    ):
+        if chunk_count is not None and num_chunks >= chunk_count:
+            return
+
         yield iterable[index : index + chunk_size]
 
 
@@ -94,6 +103,17 @@ def sample_random_search_ids(
         for video in response["items"]
         if video["id"]["kind"] == "youtube#video"
     ]
+
+
+def image_rescaler(
+    image: torch.Tensor, size: tuple[int, int] = (244, 244)
+) -> torch.Tensor:
+    return torch.nn.functional.interpolate(
+        image.unsqueeze(0),
+        size=size,
+        mode="bilinear",
+        align_corners=False,
+    ).squeeze(0)
 
 
 class VideoDataset:
@@ -157,33 +177,75 @@ class VideoDataset:
     async def get_training_batches(
         self,
         batch_size: int,
-    ) -> AsyncGenerator[vmodel.ThumbnailStatisticsTrainingBatch, None]:
+        batch_count: int | None = None,
+    ) -> list[vmodel.ThumbnailStatisticsTrainingBatch]:
+        batches: list[vmodel.ThumbnailStatisticsTrainingBatch] = []
+
         async with aiohttp.ClientSession() as aiohttp_session:
-            for samples in chunked([*self.videos.items()], batch_size):
+            for samples in chunked(
+                [*self.videos.items()], batch_size, chunk_count=batch_count
+            ):
                 try:
-                    yield vmodel.ThumbnailStatisticsTrainingBatch(
-                        video_ids=[video_id for video_id, _ in samples],
-                        image=torch.stack(
-                            [
-                                await video_data.image_tensor(aiohttp_session)
-                                for _, video_data in samples
-                            ]
-                        ),
-                        view_count=torch.stack(
-                            [
-                                torch.tensor(
-                                    int(
-                                        video_data.video_data["statistics"]["viewCount"]
-                                    )
-                                )
-                                for _, video_data in samples
-                                if isinstance(video_data.thumbnail, torch.Tensor)
-                            ]
-                        ),
+                    image_tensors: list[
+                        tuple[uuid.UUID, torch.Tensor]
+                    ] = await asyncio.gather(
+                        *(
+                            video_data.image_tensor(aiohttp_session)
+                            for _, video_data in samples
+                        )
                     )
 
-                except ValueError:
-                    pass
+                    image_tensor_map: dict[uuid.UUID, torch.Tensor] = {
+                        video_id: image_tensor
+                        for video_id, image_tensor in image_tensors
+                    }
+
+                    view_count_map: dict[uuid.UUID, int] = {
+                        video_data.video_data_id: int(
+                            video_data.video_data["statistics"]["viewCount"]
+                        )
+                        for _, video_data in samples
+                    }
+
+                    available_video_data_ids: list[uuid.UUID] = [
+                        *(set(image_tensor_map.keys()) & set(view_count_map.keys()))
+                    ]
+
+                    available_video_ids: list[str] = [
+                        video_data.video_data["id"]
+                        for video_data in self.videos.values()
+                        if video_data.video_data_id in available_video_data_ids
+                    ]
+
+                    batch: vmodel.ThumbnailStatisticsTrainingBatch = (
+                        vmodel.ThumbnailStatisticsTrainingBatch(
+                            video_ids=available_video_ids,
+                            image=torch.stack(
+                                [
+                                    image_rescaler(
+                                        image_tensor_map[video_data_id],
+                                        (244, 244),
+                                    )
+                                    for video_data_id in available_video_data_ids
+                                ]
+                            ),
+                            view_count=torch.stack(
+                                [
+                                    torch.tensor(
+                                        view_count_map[video_data_id], dtype=torch.float
+                                    )
+                                    for video_data_id in available_video_data_ids
+                                ]
+                            ),
+                        )
+                    )
+
+                    batches.append(batch)
+
+                except ValueError as e:
+                    print(f"Skipping batch due to error: {e}")
+
+        return batches
 
     def split_dataset(
         self, split_ratio: float
