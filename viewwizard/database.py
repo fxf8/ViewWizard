@@ -22,13 +22,13 @@ import viewwizard.model as vmodel
 
 @dataclass
 class VideoData:
-    video_data: schema.YouTubeVideoItemJSON
+    google_video_data: schema.YouTubeVideoItemJSON
     video_data_id: uuid.UUID = field(init=False)
     thumbnail: yarl.URL | torch.Tensor = field(init=False)  # Has shape (3 x H x W)
 
     def __post_init__(self):
         self.thumbnail = yarl.URL(
-            self.video_data["snippet"]["thumbnails"]["default"]["url"]
+            self.google_video_data["snippet"]["thumbnails"]["default"]["url"]
         )
 
         self.video_data_id = uuid.uuid4()
@@ -202,7 +202,7 @@ class VideoDataset:
 
                     view_count_map: dict[uuid.UUID, int] = {
                         video_data.video_data_id: int(
-                            video_data.video_data["statistics"]["viewCount"]
+                            video_data.google_video_data["statistics"]["viewCount"]
                         )
                         for _, video_data in samples
                     }
@@ -212,7 +212,7 @@ class VideoDataset:
                     ]
 
                     available_video_ids: list[str] = [
-                        video_data.video_data["id"]
+                        video_data.google_video_data["id"]
                         for video_data in self.videos.values()
                         if video_data.video_data_id in available_video_data_ids
                     ]

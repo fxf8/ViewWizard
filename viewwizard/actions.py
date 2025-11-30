@@ -897,7 +897,7 @@ async def validate_model(menu_context: "vsession.MenuContext"):
     ][1]
 
     validation_views_map: dict[uuid.UUID, str] = {
-        video_data.video_data_id: video_data.video_data["statistics"]["viewCount"]
+        video_data.video_data_id: video_data.google_video_data["statistics"]["viewCount"]
         for video_data in validation_dataset.videos.values()
     }
 

@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+import functools
 import torch
 import torchvision
 
@@ -14,7 +15,7 @@ class ThumbnailStatisticsModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.encoder = torchvision.models.squeezenet1_1(weights="DEFAULT").features
+        self.encoder = torchvision.models.mobilenet_v2(weights="DEFAULT").features
 
         for parameter in self.encoder.parameters():
             parameter.requires_grad = False
@@ -23,7 +24,7 @@ class ThumbnailStatisticsModel(torch.nn.Module):
 
         self.regression = torch.nn.Sequential(
             torch.nn.Flatten(),
-            torch.nn.Linear(in_features=512, out_features=256),
+            torch.nn.Linear(in_features=1280, out_features=256),
             torch.nn.ReLU(),
             torch.nn.Linear(in_features=256, out_features=1),
         )  # (view count)
@@ -75,10 +76,10 @@ def train_model_batch(
 
     optimizer.zero_grad()
 
-    predicted_view_count = model(sample.image)
+    predicted_view_count = model(sample.image).squeeze(-1)
     target: torch.Tensor = torch.log10(sample.view_count + 1)
 
-    view_count_loss = torch.nn.functional.l1_loss(predicted_view_count[:, 0], target)
+    view_count_loss = torch.nn.functional.l1_loss(predicted_view_count, target)
 
     training_history.add_loss(view_count_loss.item())
 
