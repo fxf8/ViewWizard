@@ -186,6 +186,10 @@ def search_new_thumbnails(menu_context: "vsession.MenuContext"):
 
     dataset_number: int | None = None
 
+    print(
+        "Note: In this action, each search costs 100 google api units. Yields exactly 0 to 50 videos per search."
+    )
+
     while True:
         user_input = input(
             "Please enter the index of the dataset to search (or type 'e' to exit): "
@@ -640,6 +644,10 @@ async def train_model(menu_context: "vsession.MenuContext"):
         return
 
     list_models(menu_context)
+
+    print(
+        "Note: This action may consume google api units since it may need to pull youtube video data. However, this data will be cached and therefore not require google api units for data reusage."
+    )
 
     model_index: int | None = None
 

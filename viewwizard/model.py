@@ -16,8 +16,10 @@ class ThumbnailStatisticsModel(torch.nn.Module):
 
         self.encoder = torchvision.models.squeezenet1_1(weights="DEFAULT")
 
+        """
         for parameter in self.encoder.parameters():
             parameter.requires_grad = False
+        """
 
         self.regression = torch.nn.Linear(
             in_features=1000, out_features=1
