@@ -14,24 +14,24 @@ class ThumbnailStatisticsModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.encoder = torchvision.models.squeezenet1_1(weights="DEFAULT")
+        self.encoder = torchvision.models.squeezenet1_1(weights="DEFAULT").features
 
-        """
         for parameter in self.encoder.parameters():
             parameter.requires_grad = False
-        """
+
+        self.global_pool = torch.nn.AdaptiveAvgPool2d((1, 1))
 
         self.regression = torch.nn.Sequential(
-            torch.nn.Linear(in_features=1000, out_features=512),
+            torch.nn.Flatten(),
+            torch.nn.Linear(in_features=512, out_features=256),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=512, out_features=1),
-            torch.nn.Sigmoid(),
+            torch.nn.Linear(in_features=256, out_features=1),
         )  # (view count)
 
     def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
         Takes a tensor of shape (batch_size, 3, image_input_width, image_input_height)
-        and returns a tensor of shape (batch_size, 2)
+        and returns a tensor of shape (batch_size, 1)
         """
 
         image_resized: torch.Tensor = torch.nn.functional.interpolate(
@@ -43,7 +43,9 @@ class ThumbnailStatisticsModel(torch.nn.Module):
 
         encoded_image: torch.Tensor = self.encoder(image_resized)
 
-        return self.regression(encoded_image) * 10
+        pooled_image: torch.Tensor = self.global_pool(encoded_image)
+
+        return self.regression(pooled_image)
 
 
 @dataclass
@@ -74,10 +76,9 @@ def train_model_batch(
     optimizer.zero_grad()
 
     predicted_view_count = model(sample.image)
+    target: torch.Tensor = torch.log10(sample.view_count + 1)
 
-    view_count_loss = torch.nn.functional.mse_loss(
-        predicted_view_count, torch.log10(sample.view_count + 1)
-    )
+    view_count_loss = torch.nn.functional.l1_loss(predicted_view_count[:, 0], target)
 
     training_history.add_loss(view_count_loss.item())
 
