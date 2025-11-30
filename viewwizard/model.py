@@ -21,8 +21,11 @@ class ThumbnailStatisticsModel(torch.nn.Module):
             parameter.requires_grad = False
         """
 
-        self.regression = torch.nn.Linear(
-            in_features=1000, out_features=1
+        self.regression = torch.nn.Sequential(
+            torch.nn.Linear(in_features=1000, out_features=512),
+            torch.nn.ReLU(),
+            torch.nn.Linear(in_features=512, out_features=1),
+            torch.nn.Sigmoid(),
         )  # (view count)
 
     def forward(self, image: torch.Tensor) -> torch.Tensor:
@@ -31,7 +34,7 @@ class ThumbnailStatisticsModel(torch.nn.Module):
         and returns a tensor of shape (batch_size, 2)
         """
 
-        image_resized = torch.nn.functional.interpolate(
+        image_resized: torch.Tensor = torch.nn.functional.interpolate(
             image,
             size=(244, 244),
             mode="bilinear",
@@ -40,7 +43,7 @@ class ThumbnailStatisticsModel(torch.nn.Module):
 
         encoded_image: torch.Tensor = self.encoder(image_resized)
 
-        return self.regression(encoded_image)
+        return self.regression(encoded_image) * 10
 
 
 @dataclass
@@ -72,7 +75,7 @@ def train_model_batch(
 
     predicted_view_count = model(sample.image)
 
-    view_count_loss = torch.nn.functional.l1_loss(
+    view_count_loss = torch.nn.functional.mse_loss(
         predicted_view_count, torch.log10(sample.view_count + 1)
     )
 

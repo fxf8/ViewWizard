@@ -818,7 +818,7 @@ def view_training_history(menu_context: "vsession.MenuContext"):
 
     graph_title: str = f"{model_name} Training History (Learning Rate: {optimizer.param_groups[0]['lr']})"
     horizontal_label: str = "Training Iterations"
-    vertical_label: str = "Loss (L1 Loss)"
+    vertical_label: str = "Loss (MSE Loss)"
 
     iterations: list[int] = [loss[0] for loss in training_history.losses]
     losses: list[float] = [loss[1] for loss in training_history.losses]
