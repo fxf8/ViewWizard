@@ -8,11 +8,50 @@ from typing import cast
 import uuid
 
 import googleapiclient.discovery as discovery
+
+import PIL.Image
 import torch
+
+import matplotlib
+
+matplotlib.use("QtAgg")
+
+import matplotlib.pyplot as plt
 
 import viewwizard.database as vdb
 import viewwizard.model as vmodel
 import viewwizard.actions as vactions
+
+
+@dataclass
+class ProcessedImage:
+    id: uuid.UUID
+    name: str
+    original_image_path: pathlib.Path | None
+    original_image_tensor: torch.Tensor | None
+
+    processed_image: torch.Tensor | None
+
+    def __init__(self, image: torch.Tensor | pathlib.Path, name: str | None = None):
+        self.id = uuid.uuid4()
+
+        if isinstance(image, torch.Tensor):
+            self.image = image
+
+        else:
+            pil_image = PIL.Image.open(image)
+            self.image = torch.tensor(pil_image).permute(2, 0, 1)
+
+        self.name = name if name else f"Image {self.id}"
+
+    def export(self, path: pathlib.Path):
+        PIL.Image.fromarray(self.image.permute(1, 2, 0).numpy()).save(path)
+
+    def display(self):
+        # Uses matplotlib to display
+
+        plt.imshow(self.image.permute(1, 2, 0).numpy())
+        plt.show()
 
 
 class ProgramSession:
@@ -26,6 +65,7 @@ class ProgramSession:
             vmodel.ModelTrainingHistory,
         ]
     ]
+    images: list[ProcessedImage]
     client: discovery.Resource | None
 
     def __init__(self):
