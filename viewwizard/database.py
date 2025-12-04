@@ -6,6 +6,7 @@ import io
 import pathlib
 import pickle
 import random
+import statistics
 import uuid
 
 import aiohttp
@@ -52,6 +53,9 @@ class VideoData:
                 self.thumbnail = torchvision.transforms.ToTensor()(pil_image)
 
         return self.video_data_id, self.thumbnail
+
+    def view_count(self) -> int:
+        return int(self.google_video_data["statistics"]["viewCount"])
 
 
 def create_random_query(query_size: int) -> str:
@@ -173,6 +177,16 @@ class VideoDataset:
 
     def shuffle_dataset(self):
         random.shuffle(self.video_ids)
+
+    def view_count_mean_stdev(self) -> tuple[float, float]:
+        return (
+            statistics.mean(
+                [video_data.view_count() for video_data in self.videos.values()]
+            ),
+            statistics.stdev(
+                [video_data.view_count() for video_data in self.videos.values()]
+            ),
+        )
 
     async def get_training_batches(
         self,

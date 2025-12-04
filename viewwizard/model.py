@@ -66,23 +66,30 @@ class ModelTrainingHistory:
             self.add_loss(loss[1])
 
 
+smooth_loss_function = torch.nn.SmoothL1Loss()
+
+
 def train_model_batch(
     model: ThumbnailStatisticsModel,
     sample: ThumbnailStatisticsTrainingBatch,
     optimizer: torch.optim.Optimizer,
+    target_mean: float,
+    target_std: float,
+    clip_norm: float = 1.0,
 ) -> ModelTrainingHistory:
     training_history = ModelTrainingHistory()
 
     optimizer.zero_grad()
 
     predicted_view_count = model(sample.image).squeeze(-1)
-    target: torch.Tensor = torch.log10(sample.view_count + 1)
+    target: torch.Tensor = (torch.log1p(sample.view_count) - target_mean) / target_std
 
-    view_count_loss = torch.nn.functional.l1_loss(predicted_view_count, target)
+    view_count_loss = smooth_loss_function(predicted_view_count, target)
 
     training_history.add_loss(view_count_loss.item())
 
     view_count_loss.backward()
+    torch.nn.utils.clip_grad_norm_(model.parameters(), clip_norm)
     optimizer.step()
 
     return training_history

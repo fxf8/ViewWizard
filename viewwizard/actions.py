@@ -738,11 +738,13 @@ async def train_model(menu_context: "vsession.MenuContext"):
 
     _, model, optimizer, training_history = menu_context.session.models[model_index]
 
+    dataset = menu_context.session.datasets[dataset_number][1]
+
     batches: list[
         vmodel.ThumbnailStatisticsTrainingBatch
-    ] = await menu_context.session.datasets[dataset_number][1].get_training_batches(
-        batch_size
-    )
+    ] = await dataset.get_training_batches(batch_size)
+
+    target_mean, target_std = dataset.view_count_mean_stdev()
 
     thresholds: list[int] = [int(iterations * i / 10) for i in range(1, 11)]
     iteration = 0
@@ -756,7 +758,7 @@ async def train_model(menu_context: "vsession.MenuContext"):
             break
 
         training_record: vmodel.ModelTrainingHistory = vmodel.train_model_batch(
-            model, batch, optimizer
+            model, batch, optimizer, target_mean, target_std
         )
 
         training_history.merge(training_record)
@@ -818,7 +820,7 @@ def view_training_history(menu_context: "vsession.MenuContext"):
 
     graph_title: str = f"{model_name} Training History (Learning Rate: {optimizer.param_groups[0]['lr']})"
     horizontal_label: str = "Training Iterations"
-    vertical_label: str = "Loss (MSE Loss)"
+    vertical_label: str = "Loss (L1 Smooth)"
 
     iterations: list[int] = [loss[0] for loss in training_history.losses]
     losses: list[float] = [loss[1] for loss in training_history.losses]
@@ -897,7 +899,9 @@ async def validate_model(menu_context: "vsession.MenuContext"):
     ][1]
 
     validation_views_map: dict[uuid.UUID, str] = {
-        video_data.video_data_id: video_data.google_video_data["statistics"]["viewCount"]
+        video_data.video_data_id: video_data.google_video_data["statistics"][
+            "viewCount"
+        ]
         for video_data in validation_dataset.videos.values()
     }
 
