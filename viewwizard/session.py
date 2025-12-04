@@ -28,9 +28,10 @@ class ProcessedImage:
     id: uuid.UUID
     name: str
     original_image_path: pathlib.Path | None
-    original_image_tensor: torch.Tensor | None
+    original_image_tensor: torch.Tensor
 
-    processed_image: torch.Tensor | None
+    processed_image: torch.Tensor
+    processed_image_iterations: int
 
     def __init__(self, image: torch.Tensor | pathlib.Path, name: str | None = None):
         self.id = uuid.uuid4()
@@ -43,6 +44,9 @@ class ProcessedImage:
             self.image = torch.tensor(pil_image).permute(2, 0, 1)
 
         self.name = name if name else f"Image {self.id}"
+
+        self.processed_image_iterations = 0
+        self.processed_image = self.image.clone().detach()
 
     def export(self, path: pathlib.Path):
         PIL.Image.fromarray(self.image.permute(1, 2, 0).numpy()).save(path)
@@ -276,6 +280,17 @@ DIOLAGUE_TREE: list[MenuOption] = [
                     vactions.validate_model(menu_context)
                 ),
             ),
+        ],
+    ),
+    MenuOption(
+        "Use Models...",
+        [
+            MenuOption("List Imported Images", callback=vactions.list_imported_images),
+            MenuOption("Import Images", callback=vactions.import_images),
+            MenuOption("Delete Images", callback=vactions.delete_images),
+            MenuOption("Optimize Images", callback=vactions.optimize_images),
+            MenuOption("View Optimized Images", callback=vactions.view_images),
+            MenuOption("Export Images", callback=vactions.export_images),
         ],
     ),
 ]

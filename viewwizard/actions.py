@@ -1,10 +1,13 @@
 import asyncio
+import glob
+import fnmatch
 import pathlib
 import pickle
 from typing import TYPE_CHECKING
 import uuid
 
 import matplotlib
+
 
 matplotlib.use("QtAgg")
 
@@ -966,3 +969,220 @@ async def validate_model(menu_context: "vsession.MenuContext"):
 
     print(f"Mean Absolute Error (view count): {torch.mean(difference)}")
     print(f"Mean Percentage Error (view count): {torch.mean(percent_error)}%")
+
+
+def list_imported_images(menu_context: "vsession.MenuContext"):
+    if len(menu_context.session.datasets) == 0:
+        print("There are no datasets to view.")
+
+        return
+
+    filter_pattern: str = ""
+
+    filter_pattern = input(
+        "Please enter a filter pattern (supports glob) (enter nothing for no filter) (or type 'e' to exit): "
+    )
+
+    if filter_pattern.lower() == "e":
+        return
+
+    table = [
+        [
+            index,
+            image.name,
+            image.id,
+            image.original_image_path,
+            image.processed_image_iterations,
+        ]
+        for index, image in enumerate(menu_context.session.images)
+        if filter_pattern == "" or fnmatch.fnmatch(image.name, filter_pattern)
+    ]
+
+    print(
+        tabulate.tabulate(table, headers=["Index", "Name", "ID", "Path", "Iterations"])
+    )
+
+
+def import_images(menu_context: "vsession.MenuContext"):
+    # Uses glob to import images
+
+    import_image_glob: str = input(
+        "Please enter a glob pattern (supports glob) (or type 'e' to exit): "
+    )
+
+    if import_image_glob.lower() == "e":
+        return
+
+    paths: list[pathlib.Path] = [*map(pathlib.Path, glob.glob(import_image_glob))]
+
+    if len(paths) == 0:
+        print("No images found.")
+
+        return
+
+    for path in paths:
+        menu_context.session.images.append(
+            vsession.ProcessedImage(path, name=path.name)
+        )
+
+
+def delete_images(menu_context: "vsession.MenuContext"):
+    if len(menu_context.session.images) == 0:
+        print("There are no images to delete.")
+
+        return
+
+    image_glob: str = input(
+        "Please enter a glob pattern (supports glob) (or type 'e' to exit): "
+    )
+
+    if image_glob.lower() == "e":
+        return
+
+    filtered_images: list[vsession.ProcessedImage] = [
+        image
+        for image in menu_context.session.images
+        if not fnmatch.fnmatch(image.name, image_glob)
+    ]
+
+    menu_context.session.images = filtered_images
+
+
+def optimize_images(menu_context: "vsession.MenuContext"):
+    if len(menu_context.session.images) == 0:
+        print("There are no images to optimize.")
+
+        return
+
+    if len(menu_context.session.models) == 0:
+        print("There are no models to optimize with.")
+
+        return
+
+    list_models(menu_context)
+
+    model_choice_index: int = 0
+
+    while True:
+        try:
+            model_choice_index = int(
+                input("Please enter the index of the model to optimize with: ")
+            )
+
+            if not (0 <= model_choice_index < len(menu_context.session.models)):
+                print("Invalid index.")
+
+                continue
+            break
+
+        except ValueError:
+            print("Please enter a number.")
+
+    image_glob: str = input(
+        "Please enter a glob pattern for the images to optimize (supports glob) (or type 'e' to exit): "
+    )
+
+    iterations: int = 0
+
+    while True:
+        try:
+            iterations = int(
+                input("Please enter the number of optimization iterations: ")
+            )
+
+            if iterations <= 0:
+                print("Please enter a positive number.")
+
+                continue
+            break
+
+        except ValueError:
+            print("Please enter a number.")
+
+    if image_glob.lower() == "e":
+        return
+
+    for iteration_number in range(iterations):
+        for image in menu_context.session.images:
+            if not fnmatch.fnmatch(image.name, image_glob):
+                continue
+
+            image.processed_image = vmodel.optimize_image_batch(
+                menu_context.session.models[model_choice_index][1],
+                image.processed_image.unsqueeze(0),
+            ).squeeze(0)
+
+            image.processed_image_iterations += 1
+
+        print(f"Completed Optimization Iteration {iteration_number + 1}/{iterations}")
+
+
+def view_images(menu_context: "vsession.MenuContext"):
+    if len(menu_context.session.images) == 0:
+        print("There are no images to view.")
+
+        return
+
+    image_glob: str = input(
+        "Please enter a glob pattern for the images to view (supports glob) (or type 'e' to exit): "
+    )
+
+    if image_glob.lower() == "e":
+        return
+
+    images_to_display: list[vsession.ProcessedImage] = [
+        image
+        for image in menu_context.session.images
+        if fnmatch.fnmatch(image.name, image_glob)
+    ]
+
+    print(f"Displaying {len(images_to_display)} image(s).")
+
+    print("Would you like to view the images besides the original image? (y/n)")
+    # Use matplotlib to display images in a grid
+
+    show_original = (
+        input("Would you like to view the original images as well? (y/n): ").lower()
+        == "y"
+    )
+
+    # Prepare list of images and titles
+    all_images = []
+    titles = []
+
+    for img_obj in images_to_display:
+        # Add processed image
+        all_images.append(img_obj.processed_image)
+        titles.append(f"{img_obj.name} (processed)")
+
+        if show_original and img_obj.original_image_tensor is not None:
+            all_images.append(img_obj.original_image_tensor)
+            titles.append(f"{img_obj.name} (original)")
+
+    num_images = len(all_images)
+    cols = 2  # you can change this if you want more columns
+    rows = (num_images + cols - 1) // cols
+
+    fig, axes = plt.subplots(rows, cols, figsize=(cols * 4, rows * 4))
+    axes = axes.flatten()  # flatten in case of multiple rows/cols
+
+    for i, ax in enumerate(axes):
+        if i < num_images:
+            img = all_images[i]
+            # Convert tensor to numpy image for matplotlib
+            if isinstance(img, torch.Tensor):
+                img_np = img.permute(1, 2, 0).cpu().numpy()
+            else:
+                img_np = img
+
+            ax.imshow(img_np)
+            ax.set_title(titles[i], fontsize=10)
+            ax.axis("off")
+        else:
+            ax.axis("off")  # hide unused subplots
+
+    plt.tight_layout()
+    plt.show()
+
+
+def export_images(menu_context: "vsession.MenuContext"): ...
