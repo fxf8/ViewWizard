@@ -99,24 +99,21 @@ def optimize_image_batch(
     model: ThumbnailStatisticsModel,
     image_batch: torch.Tensor,
     iterations: int,
-    total_variation_loss_weight: float = 1e-5,
+    total_variation_loss_weight: float = 1e-2,
 ) -> torch.Tensor:
     optimized_image: torch.Tensor = image_batch.clone().detach().requires_grad_(True)
 
-    optimizer: torch.optim.Optimizer = torch.optim.Adam([optimized_image], lr=0.1)
+    optimizer: torch.optim.Optimizer = torch.optim.Adam([optimized_image], lr=1e-2)
 
     for _ in range(iterations):
         optimizer.zero_grad()
 
         predicted_view_counts = model(optimized_image).squeeze()
-        total_variation_loss = (
-            torch.abs(optimized_image[:, :, 1:, :] - optimized_image[:, :, :-1, :])
-            .mean(dim=(1, 2, 3))
-            .mean()
-            + torch.abs(optimized_image[:, :, :, 1:] - optimized_image[:, :, :, :-1])
-            .mean(dim=(1, 2, 3))
-            .mean()
-        )
+        total_variation_loss = torch.abs(
+            optimized_image[:, :, 1:, :] - optimized_image[:, :, :-1, :]
+        ).mean(dim=(1, 2, 3)) + torch.abs(
+            optimized_image[:, :, :, 1:] - optimized_image[:, :, :, :-1]
+        ).mean(dim=(1, 2, 3))
 
         loss = (
             -predicted_view_counts + total_variation_loss * total_variation_loss_weight
@@ -124,5 +121,7 @@ def optimize_image_batch(
 
         loss.backward()
         optimizer.step()
+
+        optimized_image.clamp_(0, 1)
 
     return optimized_image
