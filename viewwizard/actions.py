@@ -1084,6 +1084,9 @@ def optimize_images(menu_context: "vsession.MenuContext"):
         "Please enter a glob pattern for the images to optimize (supports glob) (or type 'e' to exit): "
     )
 
+    if image_glob.lower() == "e":
+        return
+
     iterations: int = 0
 
     while True:
@@ -1101,22 +1104,19 @@ def optimize_images(menu_context: "vsession.MenuContext"):
         except ValueError:
             print("Please enter a number.")
 
-    if image_glob.lower() == "e":
-        return
+    for image in menu_context.session.images:
+        if not fnmatch.fnmatch(image.name, image_glob):
+            continue
 
-    for iteration_number in range(iterations):
-        for image in menu_context.session.images:
-            if not fnmatch.fnmatch(image.name, image_glob):
-                continue
+        image.processed_image = vmodel.optimize_image_batch(
+            menu_context.session.models[model_choice_index][1],
+            image.processed_image.unsqueeze(0),
+            iterations,
+        ).squeeze(0)
 
-            image.processed_image = vmodel.optimize_image_batch(
-                menu_context.session.models[model_choice_index][1],
-                image.processed_image.unsqueeze(0),
-            ).squeeze(0)
+        image.processed_image_iterations += iterations
 
-            image.processed_image_iterations += 1
-
-        print(f"Completed Optimization Iteration {iteration_number + 1}/{iterations}")
+    print(f"Completed Optimization with {iterations} iterations.")
 
 
 def view_images(menu_context: "vsession.MenuContext"):
