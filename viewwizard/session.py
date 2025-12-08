@@ -8,7 +8,7 @@ from typing import cast
 import uuid
 
 import googleapiclient.discovery as discovery
-
+import numpy as np
 import PIL.Image
 import torch
 
@@ -37,24 +37,37 @@ class ProcessedImage:
         self.id = uuid.uuid4()
 
         if isinstance(image, torch.Tensor):
-            self.image = image
+            self.original_image_tensor = image
+            self.original_image_path = None
 
         else:
             pil_image = PIL.Image.open(image)
-            self.image = torch.tensor(pil_image).permute(2, 0, 1)
+            self.original_image_path = image
+            self.original_image_tensor = (
+                torch.tensor(np.array(pil_image), dtype=torch.float32).permute(2, 0, 1)
+                / 255
+            )
 
         self.name = name if name else f"Image {self.id}"
 
         self.processed_image_iterations = 0
-        self.processed_image = self.image.clone().detach()
+        self.processed_image = self.original_image_tensor.clone().detach()
 
-    def export(self, path: pathlib.Path):
-        PIL.Image.fromarray(self.image.permute(1, 2, 0).numpy()).save(path)
+    def export(self, path: pathlib.Path, export_original: bool = False):
+        if export_original:
+            PIL.Image.fromarray(
+                self.original_image_tensor.permute(1, 2, 0).numpy()
+            ).save(path.with_suffix(".original.png"))
+
+        else:
+            PIL.Image.fromarray(self.processed_image.permute(1, 2, 0).numpy()).save(
+                path
+            )
 
     def display(self):
         # Uses matplotlib to display
 
-        plt.imshow(self.image.permute(1, 2, 0).numpy())
+        plt.imshow(self.processed_image.permute(1, 2, 0).numpy())
         plt.show()
 
 
@@ -155,6 +168,9 @@ class ProgramSession:
             session.models.append((model_name, model, optimizer, history))
 
         session.client = None
+
+        if not hasattr(session, "images"):
+            session.images = []
 
         return session
 

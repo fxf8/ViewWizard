@@ -1004,6 +1004,8 @@ def list_imported_images(menu_context: "vsession.MenuContext"):
 
 
 def import_images(menu_context: "vsession.MenuContext"):
+    import viewwizard.session as vsession
+
     # Uses glob to import images
 
     import_image_glob: str = input(
@@ -1138,7 +1140,6 @@ def view_images(menu_context: "vsession.MenuContext"):
 
     print(f"Displaying {len(images_to_display)} image(s).")
 
-    print("Would you like to view the images besides the original image? (y/n)")
     # Use matplotlib to display images in a grid
 
     show_original = (
@@ -1150,36 +1151,36 @@ def view_images(menu_context: "vsession.MenuContext"):
     all_images = []
     titles = []
 
-    for img_obj in images_to_display:
+    for image in images_to_display:
         # Add processed image
-        all_images.append(img_obj.processed_image)
-        titles.append(f"{img_obj.name} (processed)")
+        all_images.append(image.processed_image)
+        titles.append(f"{image.name} (processed)")
 
-        if show_original and img_obj.original_image_tensor is not None:
-            all_images.append(img_obj.original_image_tensor)
-            titles.append(f"{img_obj.name} (original)")
+        if show_original and image.original_image_tensor is not None:
+            all_images.append(image.original_image_tensor)
+            titles.append(f"{image.name} (original)")
 
     num_images = len(all_images)
-    cols = 2  # you can change this if you want more columns
-    rows = (num_images + cols - 1) // cols
+    columns = 2  # you can change this if you want more columns
+    rows = (num_images + columns - 1) // columns
 
-    fig, axes = plt.subplots(rows, cols, figsize=(cols * 4, rows * 4))
+    figure, axes = plt.subplots(rows, columns, figsize=(columns * 4, rows * 4))
     axes = axes.flatten()  # flatten in case of multiple rows/cols
 
-    for i, ax in enumerate(axes):
-        if i < num_images:
-            img = all_images[i]
+    for axis_index, axis in enumerate(axes):
+        if axis_index < num_images:
+            image = all_images[axis_index]
             # Convert tensor to numpy image for matplotlib
-            if isinstance(img, torch.Tensor):
-                img_np = img.permute(1, 2, 0).cpu().numpy()
+            if isinstance(image, torch.Tensor):
+                image_numpy = image.permute(1, 2, 0).cpu().clone().detach().numpy()
             else:
-                img_np = img
+                image_numpy = image
 
-            ax.imshow(img_np)
-            ax.set_title(titles[i], fontsize=10)
-            ax.axis("off")
+            axis.imshow(image_numpy)
+            axis.set_title(titles[axis_index], fontsize=10)
+            axis.axis("off")
         else:
-            ax.axis("off")  # hide unused subplots
+            axis.axis("off")  # hide unused subplots
 
     plt.tight_layout()
     plt.show()
