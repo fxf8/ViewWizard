@@ -56,13 +56,21 @@ class ProcessedImage:
     def export(self, path: pathlib.Path, export_original: bool = False):
         if export_original:
             PIL.Image.fromarray(
-                self.original_image_tensor.permute(1, 2, 0).numpy()
+                (self.original_image_tensor.clamp(0, 1) * 255)
+                .byte()
+                .permute(1, 2, 0)
+                .cpu()
+                .numpy()
             ).save(path.with_suffix(".original.png"))
 
         else:
-            PIL.Image.fromarray(self.processed_image.permute(1, 2, 0).numpy()).save(
-                path
-            )
+            PIL.Image.fromarray(
+                (self.processed_image.clamp(0, 1) * 255)
+                .byte()
+                .permute(1, 2, 0)
+                .cpu()
+                .numpy()
+            ).save(path.with_suffix(".processed.png"))
 
     def display(self):
         # Uses matplotlib to display

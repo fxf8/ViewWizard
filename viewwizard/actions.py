@@ -1186,4 +1186,59 @@ def view_images(menu_context: "vsession.MenuContext"):
     plt.show()
 
 
-def export_images(menu_context: "vsession.MenuContext"): ...
+def export_images(menu_context: "vsession.MenuContext"):
+    if len(menu_context.session.images) == 0:
+        print("There are no images to export.")
+
+        return
+
+    image_glob: str = input(
+        "Please enter a glob pattern for the images to export (supports glob) (or type 'e' to exit): "
+    )
+
+    if image_glob == "e":
+        return
+
+    output_directory_str: str = input(
+        "Please enter the output directory (enter nothing for current directory) (or type 'e' to exit): "
+    )
+
+    if output_directory_str == "e":
+        return
+
+    output_directory: pathlib.Path = pathlib.Path(output_directory_str)
+
+    if output_directory.exists() and not output_directory.is_dir():
+        print(
+            f"Please enter a valid directory. The path {output_directory} exists but is not a directory."
+        )
+
+        return
+
+    if not output_directory.exists():
+        make_directory: bool = (
+            input(
+                f"The directory {output_directory} does not exist. Would you like to create it? (y/n): "
+            )
+            == "y"
+        )
+
+        if not make_directory:
+            print("Cannot export images to a non-existent directory.")
+
+            return
+
+        output_directory.mkdir(parents=True)
+
+    images_to_export: list[vsession.ProcessedImage] = [
+        image
+        for image in menu_context.session.images
+        if fnmatch.fnmatch(image.name, image_glob)
+    ]
+
+    # Check if the exported directory is a file
+
+    for image in images_to_export:
+        image.export(output_directory / image.name, export_original=True)
+
+    print(f"Exported {len(images_to_export)} image(s) to {output_directory}.")
