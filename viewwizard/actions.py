@@ -1087,9 +1087,21 @@ def optimize_images(menu_context: "vsession.MenuContext"):
         except ValueError:
             print("Please enter a number.")
 
-    for image in menu_context.session.images:
-        if not fnmatch.fnmatch(image.name, image_glob):
-            continue
+    optimized_images: list[vsession.ProcessedImage] = [
+        image
+        for image in menu_context.session.images
+        if fnmatch.fnmatch(image.name, image_glob)
+    ]
+
+    if len(optimized_images) == 0:
+        print(f"No images found. Matching glob pattern `{image_glob}`.")
+
+        return
+
+    print(f"Optimizing {len(optimized_images)} image(s).")
+
+    for image in tqdm.tqdm(optimized_images):
+        print("Optimizing image...")
 
         image.processed_image = vmodel.optimize_image_batch(
             menu_context.session.models[model_choice_index][1],
@@ -1137,7 +1149,9 @@ def view_images(menu_context: "vsession.MenuContext"):
     for image in images_to_display:
         # Add processed image
         all_images.append(image.processed_image)
-        titles.append(f"{image.name} (processed)")
+        titles.append(
+            f"{image.name} (processed with {image.processed_image_iterations} iterations)"
+        )
 
         if show_original and image.original_image_tensor is not None:
             all_images.append(image.original_image_tensor)
