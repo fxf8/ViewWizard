@@ -48,7 +48,13 @@ class VideoData:
                 .replace("https: //", "https://")
                 .replace("http: //", "http://")
             ) as response:
-                response.raise_for_status()
+                try:
+                    response.raise_for_status()
+
+                except aiohttp.ClientResponseError as e:
+                    print(f"Failed to download thumbnail: {e}")
+
+                    return (self.video_data_id, torch.zeros(3, 1, 1))
 
                 pil_image = PIL.Image.open(
                     io.BytesIO(await response.content.read())
@@ -223,6 +229,8 @@ class VideoDataset:
                             video_data.google_video_data["statistics"]["viewCount"]
                         )
                         for _, video_data in samples
+                        if "statistics" in video_data.google_video_data
+                        and "viewCount" in video_data.google_video_data["statistics"]
                     }
 
                     available_video_data_ids: list[uuid.UUID] = [

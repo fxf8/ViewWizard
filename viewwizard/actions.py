@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import aiohttp
 import tabulate
 import torch
+import tqdm
 
 import viewwizard.database as vdb
 import viewwizard.model as vmodel
@@ -749,10 +750,9 @@ async def train_model(menu_context: "vsession.MenuContext"):
 
     target_mean, target_std = dataset.view_count_mean_stdev()
 
-    thresholds: list[int] = [int(iterations * i / 10) for i in range(1, 11)]
     iteration = 0
 
-    for batch in batches:
+    for batch in tqdm.tqdm(batches):
         iteration += 1
 
         if iteration > iterations:
@@ -765,22 +765,6 @@ async def train_model(menu_context: "vsession.MenuContext"):
         )
 
         training_history.merge(training_record)
-
-        thresholds_passsed: list[int] = [
-            threshold for threshold in thresholds if threshold <= iteration
-        ]
-
-        if len(thresholds_passsed) > 0:
-            highest_thresholds_passed = max(thresholds_passsed)
-            thresholds = [
-                threshold
-                for threshold in thresholds
-                if threshold > highest_thresholds_passed
-            ]
-
-            print(
-                f"Progress: {iteration}/{iterations} ({100 * iteration / iterations:.2f}%)"
-            )
 
     print(
         f"Training complete. Final iteration: {training_history.losses[-1][0]}, Final loss: {training_history.losses[-1][1]}"
