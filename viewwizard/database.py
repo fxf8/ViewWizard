@@ -207,9 +207,6 @@ class VideoDataset:
     ) -> list[vmodel.ThumbnailStatisticsTrainingBatch]:
         batches: list[vmodel.ThumbnailStatisticsTrainingBatch] = []
 
-        if display_progress:
-            print("Downloading thumbnails...")
-
         async with aiohttp.ClientSession() as aiohttp_session:
             for samples in (
                 tqdm.tqdm(

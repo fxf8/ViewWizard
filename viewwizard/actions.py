@@ -739,6 +739,8 @@ async def train_model(menu_context: "vsession.MenuContext"):
 
     dataset = menu_context.session.datasets[dataset_number][1]
 
+    print("Obtaining training batches... (may require downloading data if not cached)")
+
     batches: list[
         vmodel.ThumbnailStatisticsTrainingBatch
     ] = await dataset.get_training_batches(batch_size, display_progress=True)
@@ -746,6 +748,8 @@ async def train_model(menu_context: "vsession.MenuContext"):
     target_mean, target_std = dataset.view_count_mean_stdev()
 
     iteration = 0
+
+    print("Training model...")
 
     for batch in tqdm.tqdm(batches):
         iteration += 1
