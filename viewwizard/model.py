@@ -71,12 +71,6 @@ class ModelTrainingHistory:
             self.add_loss(loss[1])
 
 
-smooth_loss_function = torch.nn.SmoothL1Loss()
-image_normalizer = torchvision.transforms.Normalize(
-    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-)
-
-
 def train_model_batch(
     model: ThumbnailStatisticsModel,
     sample: ThumbnailStatisticsTrainingBatch,
@@ -86,10 +80,14 @@ def train_model_batch(
     clip_norm: float = 1.0,
 ) -> ModelTrainingHistory:
     training_history = ModelTrainingHistory()
+    smooth_loss_function = torch.nn.SmoothL1Loss()
+    image_normalizer = torchvision.transforms.Normalize(
+        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+    )
 
     optimizer.zero_grad()
 
-    normalized_image_batch: torch.Tensor = sample.image_batch
+    normalized_image_batch: torch.Tensor = image_normalizer(sample.image_batch)
 
     predicted_view_count = model(normalized_image_batch).squeeze(-1)
     target: torch.Tensor = (torch.log1p(sample.view_count) - target_mean) / target_std
@@ -170,7 +168,7 @@ def optimize_image_batch(
             with torch.no_grad():
                 blurred_latent_image_batch: torch.Tensor = (
                     torchvision.transforms.functional.gaussian_blur(
-                        torch.sigmoid(latent_batch.clone()), kernel_size=[5, 5]
+                        torch.sigmoid(latent_batch.detach()), kernel_size=[5, 5]
                     )
                 )
 
