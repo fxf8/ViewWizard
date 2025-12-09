@@ -10,6 +10,7 @@ import googleapiclient.discovery as discovery
 import numpy as np
 import PIL.Image
 import torch
+import tqdm
 
 import matplotlib
 
@@ -208,7 +209,7 @@ class ProgramSession:
 
         new_ids: list[str] = []
 
-        for index in range(search_count):
+        for index in tqdm.tqdm(range(search_count)):
             new_ids.extend(
                 vdb.sample_random_search_ids(
                     client, vdb.create_random_query(random.randint(2, 4))

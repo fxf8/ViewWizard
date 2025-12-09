@@ -236,12 +236,7 @@ def search_new_thumbnails(menu_context: "vsession.MenuContext"):
         except ValueError:
             print("Invalid input. Please enter a number.")
 
-    def progress_callback(current: int, total: int):
-        print(f"Progress: {current + 1}/{total}")
-
-    menu_context.session.search_new_thumbnails(
-        dataset_number, search_count, progress_callback
-    )
+    menu_context.session.search_new_thumbnails(dataset_number, search_count)
 
 
 def view_dataset(menu_context: "vsession.MenuContext"):
