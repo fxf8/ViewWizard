@@ -27,6 +27,10 @@ class VideoData:
     video_data_id: uuid.UUID = field(init=False)
     thumbnail: yarl.URL | torch.Tensor = field(init=False)  # Has shape (3 x H x W)
 
+    """
+    Thumbnail tensor will have shape (3 x H x W) and channel values in [0, 1]
+    """
+
     def __post_init__(self):
         self.thumbnail = yarl.URL(
             self.google_video_data["snippet"]["thumbnails"]["default"]["url"]
@@ -234,7 +238,7 @@ class VideoDataset:
                     batch: vmodel.ThumbnailStatisticsTrainingBatch = (
                         vmodel.ThumbnailStatisticsTrainingBatch(
                             video_ids=available_video_ids,
-                            image=torch.stack(
+                            image_batch=torch.stack(
                                 [
                                     image_rescaler(
                                         image_tensor_map[video_data_id],
