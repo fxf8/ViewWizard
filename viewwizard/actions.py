@@ -741,7 +741,7 @@ async def train_model(menu_context: "vsession.MenuContext"):
 
     batches: list[
         vmodel.ThumbnailStatisticsTrainingBatch
-    ] = await dataset.get_training_batches(batch_size)
+    ] = await dataset.get_training_batches(batch_size, display_progress=True)
 
     target_mean, target_std = dataset.view_count_mean_stdev()
 

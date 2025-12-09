@@ -15,6 +15,7 @@ import googleapiclient.discovery
 import PIL.Image
 import torch
 import torchvision
+import tqdm
 import yarl
 
 import viewwizard.schema as schema
@@ -202,12 +203,26 @@ class VideoDataset:
         self,
         batch_size: int,
         batch_count: int | None = None,
+        display_progress: bool = False,
     ) -> list[vmodel.ThumbnailStatisticsTrainingBatch]:
         batches: list[vmodel.ThumbnailStatisticsTrainingBatch] = []
 
+        if display_progress:
+            print("Downloading thumbnails...")
+
         async with aiohttp.ClientSession() as aiohttp_session:
-            for samples in chunked(
-                [*self.videos.items()], batch_size, chunk_count=batch_count
+            for samples in (
+                tqdm.tqdm(
+                    [
+                        *chunked(
+                            [*self.videos.items()], batch_size, chunk_count=batch_count
+                        )
+                    ]
+                )
+                if display_progress
+                else chunked(
+                    [*self.videos.items()], batch_size, chunk_count=batch_count
+                )
             ):
                 try:
                     image_tensors: list[
